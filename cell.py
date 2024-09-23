@@ -237,6 +237,8 @@ class Cell(pygame.sprite.Sprite):
                 bias += 1
             if (cell_map[item].id, cell_map[item].dir) == (2, (dir+2)%4):
                 bias -= 1
+            if cell_map[item].id == 21:
+                bias -= 1
 
         if bias <= 0:
             return False
@@ -304,7 +306,7 @@ class Cell(pygame.sprite.Sprite):
         suicide_flag = False
         enemy_flag = False
         row_interrupt_flag = False
-        bias = 1
+        bias = 0
         if (self.tile_x + dx, self.tile_y + dy) in cell_map.keys():
             if cell_map[(self.tile_x + dx, self.tile_y + dy)].id in [12, 13, 24]:
                 killer_cell = (cell_map[(self.tile_x + dx, self.tile_y + dy)].tile_x, cell_map[(self.tile_x + dx, self.tile_y + dy)].tile_y)
@@ -316,14 +318,18 @@ class Cell(pygame.sprite.Sprite):
                 if move:
                     return False
         for cell in row_cells:
-            if (cell.id, cell.dir) == (14, dir):
+            if (cell.pulls, cell.dir) == (True, dir):
                 bias += 1
-            if (cell.id, cell.dir) == (14, (dir+2)%4):
+            if (cell.pulls, cell.dir) == (True, (dir+2)%4):
                 bias -= 1
+            if cell.id == 29:
+                bias -= 1
+                print("unbias")
             if cell.get_side((self.dir)) in ["enemy", "wall", "unpushable", "trash"]:
                 row_interrupt_flag = True
-            if cell.id == 2:
+            if cell.id == 2 and cell.dir == self.dir:
                 cell.suppressed = True
+            print(bias)
 
         if row_interrupt_flag:
             del row[-1]

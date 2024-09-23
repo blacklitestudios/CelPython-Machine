@@ -25,14 +25,14 @@ cell_names: dict[int|str, str] = {
     18: "gear_cw",
     19: "gear_ccw",
     20: "ungeneratable",
-    21: "repulsor",
+    21: "repulsor", #
     23: "crossgenerator",
     24: "strongenemy",
     25: "freezer",
     26: "cwgenerator", #
     27: "ccwgenerator", #
     28: "advancer", #
-    29: "impulsor",
+    29: "impulsor", #
     30: "flipper",
     39: "crossdiverger",
 }

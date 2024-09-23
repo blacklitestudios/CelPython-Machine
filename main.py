@@ -7,6 +7,8 @@ pygame.init()
 
 def place_cell(x: int, y: int, id: int, dir: int) -> None:
     '''Place a cell on the cell map'''
+    if not (x >= 0 and x < GRID_WIDTH and y >= 0 and y < GRID_HEIGHT):
+        return
     if (x, y) in cell_map.keys():
         # Target cell is not empty
         if id == 0:

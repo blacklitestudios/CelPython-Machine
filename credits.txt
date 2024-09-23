@@ -1,0 +1,172 @@
+The original Cell Machine was created by Sam Hogan. This is a non-profit passion project that simply aims to add more content to the original idea.
+
+The FontStruction “7:12 Serif Bold”
+(https://fontstruct.com/fontstructions/show/413598) by Christian Munk is
+licensed under a Creative Commons Attribution Share Alike license
+(http://creativecommons.org/licenses/by-sa/3.0/).
+“7:12 Serif Bold” was originally cloned (copied) from the FontStruction
+“7:12 Serif” (https://fontstruct.com/fontstructions/show/243645) by
+Christian Munk, which is licensed under a Creative Commons Attribution Share
+Alike license (http://creativecommons.org/licenses/by-sa/3.0/).
+
+Gear was inspired by Sam Hogan's original idea for the Rotator ("spins cells around it")
+
+WorstPacifist for
+Trash
+
+arkanon_ for
+Ungenerateable (Renamed from "Mold")
+Fungal
+
+Blendi Goose for
+Creating and managing the discord server
+Strong Enemy (Renamed from "Double Enemy")
+Trigenerator (Renamed from "Triple Generator")
+Bigenerator (Renamed from "Double Generator")
+CW/CCW Generators
+Recursor (inspired by "Pushmaker")
+Maker (inspired by "Spawner")
+
+blaumeise20 for
+Diverger (renamed from "Redirector")
+
+fanhalo for
+Repulsor
+
+HeavenlyMessiah for
+Redirector
+
+fowo for
+Mirror
+Diagonal Mirror(s)
+Rowmover/Rowpuller/Rowadvancer (Renamed from Repusher/Repuller)
+
+Spunky_Dollish_2 for 
+Weight (renamed from "Condition")
+
+Rou_bi for
+Advancer (renamed from "Pullsher")
+
+Benzaldehyde for
+Pararotator 
+Displacer(s)
+Transmitter
+Nudger (renamed from "Speed")
+Crimson, Warped, Cancer, Bioweapon, Grey Goo, Bacteria, Prion, Virus
+Resistance
+Megademolisher
+Memory Generator
+Twist Diverger
+Acid
+Conveyor Grapulsor
+Constructor, sorta (renamed from "Concretor")
+Silicon
+Filter
+Transmutator
+Like, every Slicer variant
+Megafreezer (Renamed from "Super Freezer")
+Colored Placeables
+Remover (Texture)
+Broken Mover/Puller (Renamed from "Movlite"/"Pullite")
+Termites
+Balloon
+Super Mirror
+Cog
+Junk
+Builder
+Jump Trash (Texture)
+Collider
+Parabole
+Crystal
+Lockpick (inspired by "Slide Opener")
+Midas
+Reflector
+Extensions
+Redirect Diverger (became Rotator Diverger)
+Aperiocell "Blocked" option (inspired by "Bounce Mover")
+Honey (Texture)
+Toggle Door
+Spikes (renamed from "Cover")
+Seizer
+Dispenser
+Dropoff/Dropper (Texture)
+Cracker
+Jump/Dodge/Evade/Attack (Mega)demolisher (Texture)
+Mossy Stone, Copper, Silver, Gold, Wool BG/Walls
+Vacuum
+Flip Gear
+Deleter
+Partial Converter
+Multiplier/Divider Diverger
+Random Vine-likes (Texture)
+Settlestorage/Motostorage
+Metafungal
+Icicle
+Conductance, Coil, Capacitor, Inductor, Transistor
+
+hd28br for
+Staller (renamed from "Brick")
+Semifreezer (Renamed from "Slider Freezer")
+Deleter Diode
+Broken Generator/Replicator
+Immobilizer
+Sentries
+Jump Trash
+Jump Enemy
+Sapper
+Super Key
+Broken Push
+
+AppaBTW for
+Storage
+
+k. for
+Impulsor
+Spooner
+Scissor (renamed from "Spiker")
+Grabber
+Chainsaw
+Explosive Enemy (Inspired by "Bomb")
+Vine and it's variants
+
+The Electricity Cell for
+IMPLY gates
+
+A Monitor/Atomical for
+Shifter (Inspired by "Tunnel" from B-Mod)
+Transformer
+Seeker
+Physical Generator
+Anchor
+Physical Trash
+Particle cells
+
+Inferno for
+Fire
+
+Kitty Cat for
+Squish Trash
+
+TheTrashCell for
+Dumpster
+Super Rotator
+
+Brodis Cool for
+Constrictor (Renamed from "Confiner")
+Impeder
+Dropoff/Dropper (Concept)
+
+Traloc_Dheckoa for
+Input Cells
+Random Rotator
+
+boiing cat for
+Random Slope/Stair
+Rowimpulsor
+
+Gusssssss for 
+Randulsor
+Random Vine-likes (Concept)
+
+Sal. for 
+Supragenerator

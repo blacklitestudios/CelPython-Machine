@@ -273,6 +273,7 @@ class Cell(pygame.sprite.Sprite):
                 suicide_flag = True
             else:
                 del cell_map[row[-2]]
+                del row[2]
             killer_cell_hp = cell_map[killer_cell].hp
             cell_map[killer_cell].hp -= hp
             if cell_map[killer_cell].hp <= 0:
@@ -554,6 +555,8 @@ class Cell(pygame.sprite.Sprite):
             generated_cell.hp = behind_hp
             if generated_cell.hp == 1 and generated_cell.id == 24:
                 generated_cell.set_id(13)
+            if generated_cell.hp == 0:
+                return True
             cell_map[(self.tile_x + odx, self.tile_y + ody)] = generated_cell
             return True
         else:

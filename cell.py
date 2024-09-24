@@ -19,7 +19,7 @@ cell_names: dict[int|str, str] = {
     12: "trash", #
     13: "enemy", #
     14: "puller", #
-    15: "mirror",
+    15: "mirror", #
     16: "diverger",
     17: "redirector", #
     18: "gear_cw",
@@ -43,7 +43,7 @@ cell_cats: list[list[int]] = [
     [2, 14, 28],
     [3, 23, 26, 27],
     [9, 10, 11, 17],
-    [21, 29],
+    [21, 29, 15],
     [],
     [12, 13, 24]
 ]
@@ -70,7 +70,7 @@ def get_row(coord: tuple[int, int], dir: int) -> list[tuple[int, int]]:
                 break
             else:
                 result.append(tuple(test))
-                if temp.get_side((dir+2)%4) in ["trash", "wall", "enemy"]:
+                if temp.get_side((dir+2)%4) in ["trash", "wall", "enemy", "unpushable"]:
                     break
             
             test[0] += dx
@@ -117,6 +117,8 @@ class Cell(pygame.sprite.Sprite):
 
         self.pushes = False
         self.pulls = False
+        self.repulses = False
+        self.impulses = False
 
         self.push_extended = False
         self.pull_extended = False
@@ -133,6 +135,16 @@ class Cell(pygame.sprite.Sprite):
             self.pushes = True
         if self.id in [14, 28]:
             self.pulls = True
+        if self.id == 21:
+            self.left = "repulse"
+            self.right = "repulse"
+            self.top = "repulse"
+            self.bottom = "repulse"
+        if self.id == 29:
+            self.left = "impulse"
+            self.right = "impulse"
+            self.top = "impulse"
+            self.bottom = "impulse"
         if self.id == 5:
             self.top = "unpushable"
             self.bottom = "unpushable"
@@ -179,6 +191,7 @@ class Cell(pygame.sprite.Sprite):
         self.push_extended = False
         self.pull_extended = False
         if not self.suppressed:
+            self.do_swap()
             self.do_gen(dir)
             self.do_rot()
             self.do_redirect()
@@ -237,8 +250,9 @@ class Cell(pygame.sprite.Sprite):
                 bias += 1
             if (cell_map[item].id, cell_map[item].dir) == (2, (dir+2)%4):
                 bias -= 1
-            if cell_map[item].id == 21:
+            if cell_map[item].get_side((dir+2)%4) == "repulse":
                 bias -= 1
+
 
         if bias <= 0:
             return False
@@ -269,6 +283,7 @@ class Cell(pygame.sprite.Sprite):
         
         move_sound.play()
         temp: list[Cell] = []
+        print(row)
         for item in row[1:]:
             temp.append(cell_map[item])
             del cell_map[item]
@@ -306,7 +321,10 @@ class Cell(pygame.sprite.Sprite):
         suicide_flag = False
         enemy_flag = False
         row_interrupt_flag = False
-        bias = 0
+        if move:
+            bias = 0
+        else:
+            bias = 1
         if (self.tile_x + dx, self.tile_y + dy) in cell_map.keys():
             if cell_map[(self.tile_x + dx, self.tile_y + dy)].id in [12, 13, 24]:
                 killer_cell = (cell_map[(self.tile_x + dx, self.tile_y + dy)].tile_x, cell_map[(self.tile_x + dx, self.tile_y + dy)].tile_y)
@@ -317,19 +335,19 @@ class Cell(pygame.sprite.Sprite):
             else:
                 if move:
                     return False
+        if (self.tile_x - dx, self.tile_y - dy) in cell_map.keys():
+            if not move:
+                return False
         for cell in row_cells:
             if (cell.pulls, cell.dir) == (True, dir):
                 bias += 1
             if (cell.pulls, cell.dir) == (True, (dir+2)%4):
                 bias -= 1
-            if cell.id == 29:
-                bias -= 1
-                print("unbias")
+
             if cell.get_side((self.dir)) in ["enemy", "wall", "unpushable", "trash"]:
                 row_interrupt_flag = True
             if cell.id == 2 and cell.dir == self.dir:
                 cell.suppressed = True
-            print(bias)
 
         if row_interrupt_flag:
             del row[-1]
@@ -360,6 +378,69 @@ class Cell(pygame.sprite.Sprite):
             cell_map[(item[0]+dx, item[1]+dy)] = temp[i]
             temp[i].tile_x += dx
             temp[i].tile_y += dy
+
+        return True
+    
+    def swap(self, dir):
+        '''0: horizontal, 1: neg-diag, 2: vertical, 3: pos-diag'''
+        from main import cell_map
+        front_flag = False
+        back_flag = False
+        match dir:
+            case 0:
+                dx1, dy1, dx2, dy2 = 1, 0, -1, 0
+            case 1:
+                dx1, dy1, dx2, dy2 = 1, 1, -1, -1
+            case 2:
+                dx1, dy1, dx2, dy2 = 0, 1, 0, -1
+            case 3:
+                dx1, dy1, dx2, dy2 = 1, -1, -1, 1
+
+        if (self.tile_x + dx1, self.tile_y + dy1) in cell_map.keys():
+            front_flag = True
+            front_cell = cell_map[(self.tile_x + dx1, self.tile_y + dy1)]
+            if front_cell.id == 15:
+                return False
+            if dir == 0:
+                if front_cell.get_side(2) == "wall":
+                    return False
+            if dir == 2:
+                if front_cell.get_side(3) == "wall":
+                    return False
+        if (self.tile_x + dx2, self.tile_y + dy2) in cell_map.keys():
+            back_flag = True
+            back_cell = cell_map[(self.tile_x + dx2, self.tile_y + dy2)]
+            if back_cell.id == 15:
+                return False
+            if dir == 0:
+                if back_cell.get_side(0) == "wall":
+                    return False
+            if dir == 2:
+                if back_cell.get_side(1) == "wall":
+                    return False
+        front_x = self.tile_x + dx1
+        front_y = self.tile_y + dy1
+        back_x = self.tile_x + dx2
+        back_y = self.tile_y + dy2
+
+        temp_x = front_x
+        temp_y = front_y
+        front_x = back_x
+        front_y = back_y
+        back_x = temp_x
+        back_y = temp_y
+        if front_flag:
+            if not back_flag:
+                del cell_map[(self.tile_x + dx1, self.tile_y + dy1)]
+            cell_map[(self.tile_x + dx2, self.tile_y + dy2)] = front_cell
+            front_cell.tile_x = front_x
+            front_cell.tile_y = front_y
+        if back_flag:
+            if not front_flag:
+                del cell_map[(self.tile_x + dx2, self.tile_y + dy2)]
+            cell_map[(self.tile_x + dx1, self.tile_y + dy1)] = back_cell
+            back_cell.tile_x = back_x
+            back_cell.tile_y = back_y
 
         return True
 
@@ -405,6 +486,13 @@ class Cell(pygame.sprite.Sprite):
         if self.id == 11:
             for i in range(4):
                 self.test_rot(i, 2)
+
+    def do_swap(self):
+        if self.id == 15:
+            if self.dir in [0, 2]:
+                self.swap(0)
+            if self.dir in [1, 3]:
+                self.swap(2)
 
     def do_redirect(self):
         if self.id == 17:

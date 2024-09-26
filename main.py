@@ -21,6 +21,7 @@ def place_cell(x: int, y: int, id: int, dir: int) -> None:
         # Target cell is empty, add cell
         if id != 0:
             cell_map[(x, y)] = Cell(x, y, id, dir)
+    set_initial()
 
 def get_cell(x, y) -> Cell:
     '''Get a cell from the map given the position'''
@@ -127,6 +128,28 @@ def tick() -> None:
         for cell in get_all_cells([2], [i]):
             cell.tick(0)
 
+def copy_map(cm: dict[tuple[int, int], Cell]):
+    result: dict = {}
+    for key, value in zip(cm.keys(), cm.values()):
+        result[key] = value.copy()
+        value.tile_x = key[0]
+        value.tile_y = key[1]
+
+    return result
+
+def set_initial():
+    global initial_cell_map, initial_above, initial_below
+    initial_cell_map = copy_map(cell_map)
+    initial_above = copy_map(above)
+    initial_below = copy_map(below)
+
+def reset():
+    global cell_map, above, below
+    cell_map = copy_map(initial_cell_map)
+
+
+
+
 
 
 
@@ -186,6 +209,8 @@ destroyers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[12], 
 play_image: pygame.Surface = pygame.transform.scale(cell_images[2], (40, 40))
 pause_image: pygame.Surface = pygame.transform.rotate(pygame.transform.scale(cell_images[5], (40, 40)), -90)
 step_image: pygame.Surface = pygame.transform.scale(pygame.image.load("textures/nudger.png"), (40, 40))
+reset_image: pygame.Surface = pygame.transform.scale(pygame.image.load("textures/rotator_180.png"), (40, 40))
+initial_image: pygame.Surface = pygame.transform.scale(pygame.image.load("textures/timewarper.png"), (40, 40))
 
 brush_image: pygame.Surface
 alpha_img: pygame.Surface
@@ -196,6 +221,10 @@ pause_rect: pygame.Rect = pause_image.get_rect()
 pause_rect.topright = (WINDOW_WIDTH - 10, 10)
 step_rect: pygame.Rect = step_image.get_rect()
 step_rect.topright = (WINDOW_WIDTH - 60, 10)
+reset_rect: pygame.Rect = reset_image.get_rect()
+reset_rect.topright = (WINDOW_WIDTH - 10, 60)
+initial_rect: pygame.Rect = initial_image.get_rect()
+initial_rect.topright = (WINDOW_WIDTH - 60, 60)
 
 update_timer: float = 0
 
@@ -236,6 +265,11 @@ for cell_id in cell_images.keys():
 cell_map: dict[tuple[int, int], Cell] = {}
 above: dict[tuple[int, int], Cell] = {}
 below: dict[tuple[int, int], Cell] = {}
+
+# Initial maps
+initial_cell_map: dict[tuple[int, int], Cell] = {}
+initial_above: dict[tuple[int, int], Cell] = {}
+initial_below: dict[tuple[int, int], Cell] = {}
 
 
 # Play music
@@ -333,6 +367,10 @@ while running:
                 paused = not paused
             if step_rect.collidepoint(mouse_x, mouse_y):
                 tick()
+            if reset_rect.collidepoint(mouse_x, mouse_y):
+                reset()
+            if initial_rect.collidepoint(mouse_x, mouse_y):
+                set_initial()
 
             if event.dict["button"] == 2:
                 picked_cell = get_cell(world_mouse_tile_x, world_mouse_tile_y)
@@ -395,6 +433,10 @@ while running:
     if play_rect.collidepoint(mouse_x, mouse_y):
         all_buttons.append(True)
     if step_rect.collidepoint(mouse_x, mouse_y):
+        all_buttons.append(True)
+    if reset_rect.collidepoint(mouse_x, mouse_y):
+        all_buttons.append(True)
+    if initial_rect.collidepoint(mouse_x, mouse_y):
         all_buttons.append(True)
 
     # Check for a press suppression
@@ -482,6 +524,23 @@ while running:
     image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     window.blit(image, step_rect)
 
+    image = reset_image.convert_alpha()
+    alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
+    if reset_rect.collidepoint(mouse_x, mouse_y):
+            alpha_img.fill((255, 255, 255, 255))
+    else:
+        alpha_img.fill((255, 255, 255, 255*0.5))
+    image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    window.blit(image, reset_rect)
+
+    image = initial_image.convert_alpha()
+    alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
+    if initial_rect.collidepoint(mouse_x, mouse_y):
+            alpha_img.fill((255, 255, 255, 255))
+    else:
+        alpha_img.fill((255, 255, 255, 255*0.5))
+    image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    window.blit(image, initial_rect)
     
     clock.tick(FPS)
     if not paused:

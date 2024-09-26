@@ -2,6 +2,9 @@ import pygame
 
 pygame.init()
 
+class Cell:
+    pass
+
 cell_names: dict[int|str, str] = {
     "placeable": "placeable",
     0: "eraser", #
@@ -26,8 +29,8 @@ cell_names: dict[int|str, str] = {
     19: "gear_ccw",
     20: "ungeneratable",
     21: "repulsor", #
-    23: "crossgenerator",
-    24: "strongenemy",
+    23: "crossgenerator", #
+    24: "strongenemy", #
     25: "freezer",
     26: "cwgenerator", #
     27: "ccwgenerator", #
@@ -79,21 +82,47 @@ def get_row(coord: tuple[int, int], dir: int) -> list[tuple[int, int]]:
         return result
 
 def get_deltas(dir: int) -> tuple[int, int]:
-        match dir%4:
-            case 0:
-                dx: int = 1
-                dy: int = 0
-            case 1:
-                dx: int = 0
-                dy: int = 1
-            case 2:
-                dx: int = -1
-                dy: int = 0
-            case 3:
-                dx: int = 0
-                dy: int = -1
+    match dir%4:
+        case 0:
+            dx: int = 1
+            dy: int = 0
+        case 1:
+            dx: int = 0
+            dy: int = 1
+        case 2:
+            dx: int = -1
+            dy: int = 0
+        case 3:
+            dx: int = 0
+            dy: int = -1
 
-        return dx, dy
+    return dx, dy
+
+def swap_cells(a: tuple[int, int], b: tuple[int, int]):
+    import main
+    a_flag, b_flag = False, False
+    if a in main.cell_map.keys():
+        first = main.cell_map[a]
+        first.tile_x, first.tile_y = b[0], b[1]
+        a_flag = True
+    if b in main.cell_map.keys():
+        second = main.cell_map[b]    
+        second.tile_x, second.tile_y = a[0], a[1]
+        b_flag = True
+    if not a_flag and not b_flag:
+        return
+    
+    if a_flag:
+         main.cell_map[b] = first
+    else:
+        del main.cell_map[b]
+    if b_flag:
+        main.cell_map[a] = second
+    else:
+        del main.cell_map[a]
+   
+    
+
 
 class Cell(pygame.sprite.Sprite):
     def __init__(self, x: int, y: int, id: int, dir: int):
@@ -114,6 +143,7 @@ class Cell(pygame.sprite.Sprite):
         self.bottom: str = "pushable"
         self.hp: int = 1
         self.generation: str = "normal"
+        self.symmetry = [0, 1, 2, 3]
 
         self.pushes = False
         self.pulls = False
@@ -131,6 +161,7 @@ class Cell(pygame.sprite.Sprite):
             self.top = "wall"
             self.bottom = "wall"
             self.generation = "ghost"
+
         if self.id in [2, 28]:
             self.pushes = True
         if self.id in [14, 28]:
@@ -175,6 +206,10 @@ class Cell(pygame.sprite.Sprite):
 
     def __repr__(self) -> str:
         return f"Cell at {self.tile_x}, {self.tile_y}, id {self.id}, direction {self.dir}"
+    
+    def copy(self) -> Cell:
+        return Cell(self.tile_x, self.tile_y, self.id, self.dir)
+
 
     def update(self) -> None:
         from main import cam_x, cam_y, TILE_SIZE, cell_map
@@ -246,9 +281,9 @@ class Cell(pygame.sprite.Sprite):
                 trash_flag = True
             if "enemy" in cell_map[item].get_side((self.dir)%4):
                 enemy_flag = True
-            if (cell_map[item].id, cell_map[item].dir) == (2, dir):
+            if (cell_map[item].pushes, cell_map[item].pushes) == (True, dir):
                 bias += 1
-            if (cell_map[item].id, cell_map[item].dir) == (2, (dir+2)%4):
+            if (cell_map[item].pushes, cell_map[item].dir) == (True, (dir+2)%4):
                 bias -= 1
             if cell_map[item].get_side((dir+2)%4) == "repulse":
                 bias -= 1
@@ -284,7 +319,6 @@ class Cell(pygame.sprite.Sprite):
         
         move_sound.play()
         temp: list[Cell] = []
-        print(row)
         for item in row[1:]:
             temp.append(cell_map[item])
             del cell_map[item]
@@ -308,16 +342,16 @@ class Cell(pygame.sprite.Sprite):
     def test_pull(self, dir: int, move: bool):
         from main import cell_map
         dx, dy = get_deltas(dir)
+        push_flag = False
         if move:
             row = self.get_row((dir+2)%4)
         else:
             row = get_row((self.tile_x - 2*dx, self.tile_y - 2*dy), (dir+2)%4)
         
         row_cells = [cell_map[item] for item in row]
-        if self.pushes or 2 in [cell.id for cell in row_cells]:
-            self.test_push(self.dir, False)
-
         
+        if self.pushes or 2 in [cell.id for cell in row_cells]:
+            push_flag = True
             
         suicide_flag = False
         enemy_flag = False
@@ -345,7 +379,7 @@ class Cell(pygame.sprite.Sprite):
             if (cell.pulls, cell.dir) == (True, (dir+2)%4):
                 bias -= 1
 
-            if cell.get_side((self.dir)) in ["enemy", "wall", "unpushable", "trash"]:
+            if cell.get_side((dir)) in ["enemy", "wall", "unpushable", "trash"]:
                 row_interrupt_flag = True
             if cell.id == 2 and cell.dir == self.dir:
                 cell.suppressed = True
@@ -360,6 +394,9 @@ class Cell(pygame.sprite.Sprite):
                 del cell_map[killer_cell]
         if bias <= 0:
             return False
+        
+        if push_flag:
+            self.test_push(self.dir, False)
         if move:
             del cell_map[(self.tile_x, self.tile_y)]
             if not suicide_flag:
@@ -379,6 +416,7 @@ class Cell(pygame.sprite.Sprite):
             cell_map[(item[0]+dx, item[1]+dy)] = temp[i]
             temp[i].tile_x += dx
             temp[i].tile_y += dy
+
 
         return True
     

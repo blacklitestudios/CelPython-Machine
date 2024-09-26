@@ -23,7 +23,7 @@ def place_cell(x: int, y: int, id: int, dir: int) -> None:
             cell_map[(x, y)] = Cell(x, y, id, dir)
     set_initial()
 
-def get_cell(x, y) -> Cell:
+def get_cell(x: int, y: int) -> Cell:
     '''Get a cell from the map given the position'''
     if (x, y) in cell_map.keys():
         return cell_map[(x, y)]
@@ -128,8 +128,9 @@ def tick() -> None:
         for cell in get_all_cells([2], [i]):
             cell.tick(0)
 
-def copy_map(cm: dict[tuple[int, int], Cell]):
-    result: dict = {}
+def copy_map(cm: dict[tuple[int, int], Cell]) -> dict[tuple[int, int], Cell]:
+    '''Deep-copies an entire cell map.'''
+    result: dict[tuple[int, int], Cell] = {}
     for key, value in zip(cm.keys(), cm.values()):
         result[key] = value.copy()
         value.tile_x = key[0]
@@ -138,19 +139,16 @@ def copy_map(cm: dict[tuple[int, int], Cell]):
     return result
 
 def set_initial():
+    '''Sets the initial map to the current cell map.'''
     global initial_cell_map, initial_above, initial_below
     initial_cell_map = copy_map(cell_map)
     initial_above = copy_map(above)
     initial_below = copy_map(below)
 
 def reset():
+    '''Resets the cell map to the initial cell map.'''
     global cell_map, above, below
     cell_map = copy_map(initial_cell_map)
-
-
-
-
-
 
 
 # Initialize the game window

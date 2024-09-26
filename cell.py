@@ -62,26 +62,28 @@ rot_sound = pygame.mixer.Sound("audio/rotate.ogg")
 trash_sound = pygame.mixer.Sound("audio/destroy.ogg")
 
 def get_row(coord: tuple[int, int], dir: int) -> list[tuple[int, int]]:
-        from main import cell_map
-        dx, dy = get_deltas(dir)
-        test: list[int, int] = [coord[0], coord[1]]
-        result: list[tuple[int, int]] = []
-        while True:
-            try:
-                temp = cell_map[tuple(test)]
-            except KeyError:
+    '''Gets a row from a cell in a direction.'''
+    from main import cell_map
+    dx, dy = get_deltas(dir)
+    test: list[int, int] = [coord[0], coord[1]]
+    result: list[tuple[int, int]] = []
+    while True:
+        try:
+            temp = cell_map[tuple(test)]
+        except KeyError:
+            break
+        else:
+            result.append(tuple(test))
+            if temp.get_side((dir+2)%4) in ["trash", "wall", "enemy", "unpushable"]:
                 break
-            else:
-                result.append(tuple(test))
-                if temp.get_side((dir+2)%4) in ["trash", "wall", "enemy", "unpushable"]:
-                    break
-            
-            test[0] += dx
-            test[1] += dy
+        
+        test[0] += dx
+        test[1] += dy
 
-        return result
+    return result
 
 def get_deltas(dir: int) -> tuple[int, int]:
+    '''Gets the delta values of a direction.'''
     match dir%4:
         case 0:
             dx: int = 1
@@ -99,6 +101,7 @@ def get_deltas(dir: int) -> tuple[int, int]:
     return dx, dy
 
 def swap_cells(a: tuple[int, int], b: tuple[int, int]):
+    '''Swaps two cells in the cell map.'''
     import main
     a_flag, b_flag = False, False
     if a in main.cell_map.keys():
@@ -125,76 +128,106 @@ def swap_cells(a: tuple[int, int], b: tuple[int, int]):
 
 
 class Cell(pygame.sprite.Sprite):
+    '''A class to represent a cell.'''
     def __init__(self, x: int, y: int, id: int, dir: int):
+        '''Initialize the cell.'''
+        # Initialize the sprite
         super().__init__()
+
+        # Cell variables
         self.tile_x: int = x
         self.tile_y: int = y
         self.id: int | str = id
         self.name = cell_names[self.id]
         self.dir: int = dir
+
+        # Image variables
         self.image: pygame.Surface = cell_images[self.id]
         self.rect: pygame.Rect = self.image.get_rect()
 
+        # Effect variables
         self.frozen: bool = False
 
+        # Sides
         self.left: str = "pushable"
         self.right: str = "pushable"
         self.top: str = "pushable"
         self.bottom: str = "pushable"
+
+        # Other cell variables
         self.hp: int = 1
         self.generation: str = "normal"
-        self.symmetry = [0, 1, 2, 3]
 
+        # Push/pull variables
         self.pushes = False
         self.pulls = False
-        self.repulses = False
-        self.impulses = False
 
-        self.push_extended = False
-        self.pull_extended = False
-
+        # Flags
         self.suppressed = False
 
+        # Set cell-specific variables
+
+        # wall
         if self.id == 1:
             self.left = "wall"
             self.right = "wall"
             self.top = "wall"
             self.bottom = "wall"
-            self.generation = "ghost"
 
+        # pushers
         if self.id in [2, 28]:
             self.pushes = True
+        
+        # pullers
         if self.id in [14, 28]:
             self.pulls = True
+
+        # repulsors
         if self.id == 21:
             self.left = "repulse"
             self.right = "repulse"
             self.top = "repulse"
             self.bottom = "repulse"
+
+        # impulsors
         if self.id == 29:
             self.left = "impulse"
             self.right = "impulse"
             self.top = "impulse"
             self.bottom = "impulse"
+
+        # slider
         if self.id == 5:
             self.top = "unpushable"
             self.bottom = "unpushable"
+
+        # one-directional
         if self.id == 6:
             self.top = "unpushable"
             self.bottom = "unpushable"
             self.right = "unpushable"
+
+        # two-dirctional
         if self.id == 7:
             self.top = "unpushable"
             self.right = "unpushable"
+        
+        # three-directional
         if self.id == 8:
             self.right = "unpushable"
+        
+        # ungeneratable
         if self.id == 20:
             self.generation = "ungeneratable"
+
+        # trash
         if self.id == 12:
             self.left = "trash"
             self.right = "trash"
             self.top = "trash"
             self.bottom = "trash"
+
+        # enemy + strong enemy
         if self.id in [13, 24]:
             self.left = "enemy"
             self.right = "enemy"
@@ -203,26 +236,28 @@ class Cell(pygame.sprite.Sprite):
             if self.id == 24:
                 self.hp = 2
 
-
     def __repr__(self) -> str:
+        '''Represent the cell as a string.'''
         return f"Cell at {self.tile_x}, {self.tile_y}, id {self.id}, direction {self.dir}"
     
     def copy(self) -> Cell:
+        '''Copy constructor'''
         return Cell(self.tile_x, self.tile_y, self.id, self.dir)
 
-
     def update(self) -> None:
+        '''Update the cell, once per frame'''
         from main import cam_x, cam_y, TILE_SIZE, cell_map
         self.rect.x = self.tile_x*TILE_SIZE-cam_x
         self.rect.y = self.tile_y*TILE_SIZE-cam_y
 
-
     def draw(self) -> None:
+        '''Draw the cell on the screen'''
         from main import window, TILE_SIZE
         img: pygame.Surface = pygame.transform.rotate(pygame.transform.scale(self.image, (TILE_SIZE, TILE_SIZE)), -self.dir*90)
         window.blit(img, self.rect)
 
-    def tick(self, dir) -> None:
+    def tick(self, dir: int) -> None:
+        '''Tick the cell, once per tick'''
         self.push_extended = False
         self.pull_extended = False
         if not self.suppressed:
@@ -237,12 +272,13 @@ class Cell(pygame.sprite.Sprite):
             elif self.pushes:
                 self.do_push()
 
-    def set_id(self, id):
+    def set_id(self, id: int):
+        '''Setter to set the id, while changing the image'''
         self.id = id
         self.image = cell_images[self.id]
 
-
     def get_row(self, dir: int) -> list[tuple[int, int]]:
+        '''Object-method version of get_row()'''
         from main import cell_map
         dx, dy = get_deltas(dir)
         test: list[int, int] = [self.tile_x, self.tile_y]
@@ -262,7 +298,9 @@ class Cell(pygame.sprite.Sprite):
 
         return result
     
+
     def test_push(self, dir: int, move: bool, hp: int = 1) -> bool:
+        '''Tests a push, and returns False if failed'''
         from main import cell_map
         dx: int
         dy: int
@@ -339,7 +377,8 @@ class Cell(pygame.sprite.Sprite):
         else:
             return hp
     
-    def test_pull(self, dir: int, move: bool):
+    def test_pull(self, dir: int, move: bool) -> bool:
+        '''Tests a pull, and returns False if failed'''
         from main import cell_map
         dx, dy = get_deltas(dir)
         push_flag = False
@@ -404,7 +443,7 @@ class Cell(pygame.sprite.Sprite):
                 self.tile_x += dx
                 self.tile_y += dy
         
-        temp = []
+        temp: list[Cell] = []
         affected_cells = row
         if move:
             if affected_cells:
@@ -420,7 +459,7 @@ class Cell(pygame.sprite.Sprite):
 
         return True
     
-    def swap(self, dir):
+    def test_swap(self, dir: int) -> bool:
         '''0: horizontal, 1: neg-diag, 2: vertical, 3: pos-diag'''
         from main import cell_map
         front_flag = False
@@ -436,109 +475,17 @@ class Cell(pygame.sprite.Sprite):
                 dx1, dy1, dx2, dy2 = 1, -1, -1, 1
 
         if (self.tile_x + dx1, self.tile_y + dy1) in cell_map.keys():
-            front_flag = True
-            front_cell = cell_map[(self.tile_x + dx1, self.tile_y + dy1)]
-            if front_cell.id == 15:
+            if cell_map[(self.tile_x + dx1, self.tile_y + dy1)].get_side(int(dir/2)) in ["wall", "trash", "enemy"]:
                 return False
-            if dir == 0:
-                if front_cell.get_side(2) == "wall":
-                    return False
-            if dir == 2:
-                if front_cell.get_side(3) == "wall":
-                    return False
         if (self.tile_x + dx2, self.tile_y + dy2) in cell_map.keys():
-            back_flag = True
-            back_cell = cell_map[(self.tile_x + dx2, self.tile_y + dy2)]
-            if back_cell.id == 15:
+            if cell_map[(self.tile_x + dx2, self.tile_y + dy2)].get_side(int(dir/2 + 2)) in ["wall", "trash", "enemy"]:
                 return False
-            if dir == 0:
-                if back_cell.get_side(0) == "wall":
-                    return False
-            if dir == 2:
-                if back_cell.get_side(1) == "wall":
-                    return False
-        front_x = self.tile_x + dx1
-        front_y = self.tile_y + dy1
-        back_x = self.tile_x + dx2
-        back_y = self.tile_y + dy2
-
-        temp_x = front_x
-        temp_y = front_y
-        front_x = back_x
-        front_y = back_y
-        back_x = temp_x
-        back_y = temp_y
-        if front_flag:
-            if not back_flag:
-                del cell_map[(self.tile_x + dx1, self.tile_y + dy1)]
-            cell_map[(self.tile_x + dx2, self.tile_y + dy2)] = front_cell
-            front_cell.tile_x = front_x
-            front_cell.tile_y = front_y
-        if back_flag:
-            if not front_flag:
-                del cell_map[(self.tile_x + dx2, self.tile_y + dy2)]
-            cell_map[(self.tile_x + dx1, self.tile_y + dy1)] = back_cell
-            back_cell.tile_x = back_x
-            back_cell.tile_y = back_y
+        
+        swap_cells((self.tile_x + dx1, self.tile_y + dy1), (self.tile_x + dx2, self.tile_y + dy2))
 
         return True
 
-    
-    def do_push(self):
-        if self.pushes:
-            self.test_push(self.dir, True)
-
-    def do_repulse(self, dir):
-        if self.id == 21:
-            self.test_push(dir, False)
-
-    def do_impulse(self, dir):
-        if self.id == 29:
-            self.test_pull(dir, False)
-
-    def do_pull(self):
-        if self.pulls:
-            self.test_pull(self.dir, True)
-    
-    def do_gen(self, dir):
-        if self.id == 3:
-            if self.dir == dir:
-                self.test_gen(dir, 0)
-        if self.id == 23:
-            if self.dir in [dir, (dir+1)%4]:
-                self.test_gen(dir, 0)
-        if self.id == 26:
-            if self.dir == dir:
-                self.test_gen(dir, 1)
-        if self.id == 27:
-            if self.dir == dir:
-                self.test_gen(dir, -1)
-
-
-    def do_rot(self):
-        if self.id == 9:
-            for i in range(4):
-                self.test_rot(i, 1)
-        if self.id == 10:
-            for i in range(4):
-                self.test_rot(i, -1)
-        if self.id == 11:
-            for i in range(4):
-                self.test_rot(i, 2)
-
-    def do_swap(self):
-        if self.id == 15:
-            if self.dir in [0, 2]:
-                self.swap(0)
-            if self.dir in [1, 3]:
-                self.swap(2)
-
-    def do_redirect(self):
-        if self.id == 17:
-            for i in range(4):
-                self.test_redirect(self.dir)
-    
-    def test_rot(self, dir, rot) -> bool:
+    def test_rot(self, dir: int, rot: int) -> bool:
         from main import cell_map
         dx: int
         dy: int
@@ -555,7 +502,7 @@ class Cell(pygame.sprite.Sprite):
         target_cell.dir %= 4
         return True
     
-    def test_redirect(self, dir):
+    def test_redirect(self, dir: int) -> bool:
         from main import cell_map
         dx: int
         dy: int
@@ -600,7 +547,62 @@ class Cell(pygame.sprite.Sprite):
         else:
             return False
     
-    def get_side(self, dir) -> str:
+    
+    def do_push(self):
+        if self.pushes:
+            self.test_push(self.dir, True)
+
+    def do_repulse(self, dir: int):
+        if self.id == 21:
+            self.test_push(dir, False)
+
+    def do_impulse(self, dir: int):
+        if self.id == 29:
+            self.test_pull(dir, False)
+
+    def do_pull(self):
+        if self.pulls:
+            self.test_pull(self.dir, True)
+    
+    def do_gen(self, dir: int):
+        if self.id == 3:
+            if self.dir == dir:
+                self.test_gen(dir, 0)
+        if self.id == 23:
+            if self.dir in [dir, (dir+1)%4]:
+                self.test_gen(dir, 0)
+        if self.id == 26:
+            if self.dir == dir:
+                self.test_gen(dir, 1)
+        if self.id == 27:
+            if self.dir == dir:
+                self.test_gen(dir, -1)
+
+    def do_rot(self):
+        if self.id == 9:
+            for i in range(4):
+                self.test_rot(i, 1)
+        if self.id == 10:
+            for i in range(4):
+                self.test_rot(i, -1)
+        if self.id == 11:
+            for i in range(4):
+                self.test_rot(i, 2)
+
+    def do_swap(self):
+        if self.id == 15:
+            if self.dir in [0, 2]:
+                self.test_swap(0)
+            if self.dir in [1, 3]:
+                self.test_swap(2)
+
+    def do_redirect(self):
+        if self.id == 17:
+            for i in range(4):
+                self.test_redirect(self.dir)
+    
+
+    def get_side(self, dir: int) -> str:
         match self.dir:
             case 0:
                 return [self.right, self.bottom, self.left, self.top][dir]

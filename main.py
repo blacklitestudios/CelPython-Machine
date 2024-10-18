@@ -1,11 +1,13 @@
 import pygame, sys
-from cell import Cell, cell_images, cell_cats
+from cell import Cell, cell_images
+import cell
+
 from button import MenuSubItem
 
 # Initialize pygame
 pygame.init()
 
-def place_cell(x: int, y: int, id: int, dir: int) -> None:
+def place_cell(x: int, y: int, id: int, dir: int):
     '''Place a cell on the cell map'''
     if not (x >= 0 and x < GRID_WIDTH and y >= 0 and y < GRID_HEIGHT):
         return
@@ -21,7 +23,10 @@ def place_cell(x: int, y: int, id: int, dir: int) -> None:
         # Target cell is empty, add cell
         if id != 0:
             cell_map[(x, y)] = Cell(x, y, id, dir)
-    set_initial()
+
+    if tick_number == 0:
+        # Reset the initial state only if the current state is initial
+        set_initial()
 
 def get_cell(x: int, y: int) -> Cell:
     '''Get a cell from the map given the position'''
@@ -29,37 +34,6 @@ def get_cell(x: int, y: int) -> Cell:
         return cell_map[(x, y)]
     else:
         return Cell(x, y, 0, 0)
-    
-def get_row(x: int, y: int, dir: int) -> list[Cell]:
-    '''Get the row of cells from a coordinate, in the direction specified. Counts the starting cell.'''
-    match dir:
-        case 0:
-            dx: int = 1
-            dy: int = 0
-        case 1:
-            dx: int = 0
-            dy: int = 1
-        case 2:
-            dx: int = -1
-            dy: int = 0
-        case 3:
-            dx: int = 0
-            dy: int = -1
-
-    test: list[int, int] = [x, y]
-    result: list[Cell] = []
-    while True:
-        try:
-            cell_map[tuple(test)]
-        except KeyError:
-            break
-        else:
-            result.append(cell_map[tuple(test)])
-        
-        test[0] += dx
-        test[1] += dy
-
-    return result
 
 def get_all_cells(ids: list[int], dir: int) -> list[Cell]:
     '''Gets all the cells with a given ID and a direction, and orders them for sub-sub-ticking.'''
@@ -84,12 +58,20 @@ def get_all_cells(ids: list[int], dir: int) -> list[Cell]:
 
     return result
 
-def tick() -> None:
+def tick():
     '''Ticks the entire map.'''
     # Reset the suppression values
     cell: Cell
     for cell in cell_map.values():
         cell.suppressed = False
+        cell.frozen = False
+
+    i: int
+
+    # Do freezers
+    for cell in get_all_cells([25], [0, 1, 2, 3]):
+        for i in range(4):
+            cell.tick(i)
 
     # Do mirrors
     for cell in get_all_cells([15], [0, 1, 2, 3]):
@@ -99,6 +81,14 @@ def tick() -> None:
     for cell in get_all_cells([3, 23, 26, 27], [0, 1, 2, 3]):
         for i in range(4):
             cell.tick(i)
+
+    # Do gearssd
+    for cell in get_all_cells([18, 19], [0, 1, 2, 3]):
+        cell.tick(0)
+
+    # Do flippers
+    for cell in get_all_cells([30], [0, 1, 2, 3]):
+        cell.tick(0)
 
     # Do rotators
     for cell in get_all_cells([9, 10, 11], [0, 1, 2, 3]):
@@ -131,6 +121,8 @@ def tick() -> None:
 def copy_map(cm: dict[tuple[int, int], Cell]) -> dict[tuple[int, int], Cell]:
     '''Deep-copies an entire cell map.'''
     result: dict[tuple[int, int], Cell] = {}
+    key: tuple[int, int]
+    value: Cell
     for key, value in zip(cm.keys(), cm.values()):
         result[key] = value.copy()
         value.tile_x = key[0]
@@ -144,6 +136,7 @@ def set_initial():
     initial_cell_map = copy_map(cell_map)
     initial_above = copy_map(above)
     initial_below = copy_map(below)
+    tick_number = 0
 
 def reset():
     '''Resets the cell map to the initial cell map.'''
@@ -156,7 +149,7 @@ WINDOW_WIDTH: int = 800
 WINDOW_HEIGHT: int = 600
 window: pygame.Surface = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 pygame.display.set_caption("CelPython Machine")
-icon: pygame.Surface = pygame.image.load("textures/puller.png")
+icon: pygame.Surface = pygame.image.load("textures/icon.png")
 pygame.display.set_icon(icon)
 
 # Constants
@@ -193,6 +186,7 @@ world_mouse_tile_x: int = 0
 world_mouse_tile_y: int = 0
 
 paused: bool = True
+tick_number: int = 0
 
 # Images 
 bg_image: pygame.Surface = pygame.image.load("textures/bg.png")
@@ -202,13 +196,20 @@ movers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[2], (40, 
 generators_icon_image: pygame.Surface = pygame.transform.scale(cell_images[3], (40, 40))
 rotators_icon_image: pygame.Surface = pygame.transform.scale(cell_images[9], (40, 40))
 forcers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[21], (40, 40))
+divergers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[16], (40, 40))
 destroyers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[12], (40, 40))
+misc_icon_image: pygame.Surface = pygame.transform.scale(cell_images[20], (40, 40))
 
 play_image: pygame.Surface = pygame.transform.scale(cell_images[2], (40, 40))
 pause_image: pygame.Surface = pygame.transform.rotate(pygame.transform.scale(cell_images[5], (40, 40)), -90)
 step_image: pygame.Surface = pygame.transform.scale(pygame.image.load("textures/nudger.png"), (40, 40))
 reset_image: pygame.Surface = pygame.transform.scale(pygame.image.load("textures/rotator_180.png"), (40, 40))
 initial_image: pygame.Surface = pygame.transform.scale(pygame.image.load("textures/timewarper.png"), (40, 40))
+
+freeze_image: pygame.Surface = pygame.image.load("textures/effects/frozen.png")
+
+# Sounds
+beep: pygame.mixer.Sound = pygame.mixer.Sound("audio/beep.wav")
 
 brush_image: pygame.Surface
 alpha_img: pygame.Surface
@@ -247,10 +248,16 @@ rotators_icon_rect.midleft = (7+4*54, WINDOW_HEIGHT - 27)
 forcers_icon_rect: pygame.Rect = rotators_icon_image.get_rect()
 forcers_icon_rect.midleft = (7+5*54, WINDOW_HEIGHT - 27)
 
+divergers_icon_rect: pygame.Rect = divergers_icon_image.get_rect()
+divergers_icon_rect.midleft = (7+6*54, WINDOW_HEIGHT - 27)
+
 destroyers_icon_rect: pygame.Rect = destroyers_icon_image.get_rect()
 destroyers_icon_rect.midleft = (7+7*54, WINDOW_HEIGHT - 27)
 
-toolbar_icon_rects: list[pygame.Rect] = [tools_icon_rect, basic_icon_rect, movers_icon_rect, generators_icon_rect, rotators_icon_rect, forcers_icon_rect, None, destroyers_icon_rect]
+misc_icon_rect: pygame.Rect = misc_icon_image.get_rect()
+misc_icon_rect.midleft = (7+9*54, WINDOW_HEIGHT - 27)
+
+toolbar_icon_rects: list[pygame.Rect] = [tools_icon_rect, basic_icon_rect, movers_icon_rect, generators_icon_rect, rotators_icon_rect, forcers_icon_rect, divergers_icon_rect, destroyers_icon_rect, None, misc_icon_rect]
 toolbar_subicons: list[MenuSubItem] = []
 
 # Create submenu icons
@@ -271,8 +278,8 @@ initial_below: dict[tuple[int, int], Cell] = {}
 
 
 # Play music
-pygame.mixer.music.load("audio/scattered cells.ogg")
-pygame.mixer.music.play(-1)
+#pygame.mixer.music.load("audio/scattered cells.ogg")
+#pygame.mixer.music.play(-1)
 
 keys: list[bool]
 mouse_buttons: tuple[bool, bool, bool] = (False, False, False)
@@ -286,10 +293,9 @@ for i in range(GRID_WIDTH):
     cell_map[(i, GRID_HEIGHT)] = Cell(i, GRID_HEIGHT, border_tile, 0)
 
 # Create left and right border tiles
-j: int
-for j in range(GRID_HEIGHT):
-    cell_map[(-1, j)] = Cell(-1, j, border_tile, 0)
-    cell_map[(GRID_WIDTH, j)] = Cell(GRID_WIDTH, j, border_tile, 0)
+for i in range(GRID_HEIGHT):
+    cell_map[(-1, i)] = Cell(-1, i, border_tile, 0)
+    cell_map[(GRID_WIDTH, i)] = Cell(GRID_WIDTH, i, border_tile, 0)
 
 # Create corner border tiles
     cell_map[(-1, -1)] = Cell(-1, -1, border_tile, 0)
@@ -297,20 +303,31 @@ for j in range(GRID_HEIGHT):
     cell_map[(GRID_WIDTH, -1)] = Cell(GRID_WIDTH, -1, border_tile, 0)
     cell_map[(GRID_WIDTH, GRID_HEIGHT)] = Cell(GRID_WIDTH, GRID_HEIGHT, border_tile, 0)
 
+set_initial()
+
+# Loop-only variables
+all_buttons: list[bool]
+keys: list[bool]
+events: list[pygame.event.Event]
+event: pygame.event.Event
+
 # Main game loop
 running: bool = True
 while running:
-    all_buttons: list[bool] = []
+    all_buttons = []
+            
+    # Get pressed keys
+    keys: list[bool] = pygame.key.get_pressed()
+
     # Event loop
-    events: list[pygame.event.Event] = pygame.event.get()
-    event: pygame.event.Event
+    events = pygame.event.get()
     for event in events:
         if event.type == pygame.QUIT:
             # Player wants to quit
             running = False
         if event.type == pygame.MOUSEWHEEL:
             # Player is scrolling
-            if event.y == -1:
+            if event.dict["y"] == -1:
                 # Scrolling down
                 TILE_SIZE /= 2
                 if TILE_SIZE < 1.25:
@@ -355,25 +372,38 @@ while running:
                     current_menu = -1
                 else:
                     current_menu = 5
+            if divergers_icon_rect.collidepoint(mouse_x, mouse_y):
+                if current_menu == 6:
+                    current_menu = -1
+                else:
+                    current_menu = 6
             if destroyers_icon_rect.collidepoint(mouse_x, mouse_y):
                 if current_menu == 7:
                     current_menu = -1
                 else:
                     current_menu = 7
+
+            if misc_icon_rect.collidepoint(mouse_x, mouse_y):
+                if current_menu == 9:
+                    current_menu = -1
+                else:
+                    current_menu = 9
             
             if play_rect.collidepoint(mouse_x, mouse_y):
                 paused = not paused
             if step_rect.collidepoint(mouse_x, mouse_y):
                 tick()
             if reset_rect.collidepoint(mouse_x, mouse_y):
+                beep.play()
                 reset()
             if initial_rect.collidepoint(mouse_x, mouse_y):
+                beep.play()
                 set_initial()
 
             if event.dict["button"] == 2:
                 picked_cell = get_cell(world_mouse_tile_x, world_mouse_tile_y)
                 brush = picked_cell.id
-                dir = picked_cell.dir
+                brush_dir = picked_cell.dir
 
                 
         
@@ -389,9 +419,15 @@ while running:
                 tick()
 
             if event.dict["key"] == pygame.K_t:
-                for cell in list(cell_map.values())[:]:
-                    if (cell.tile_x, cell.tile_y) == (world_mouse_tile_x, world_mouse_tile_y):
-                        cell.tick(i)
+                i = 0
+                for tile in list(cell_map.values()):
+                    if (tile.tile_x, tile.tile_y) == (world_mouse_tile_x, world_mouse_tile_y):
+                        print(cell.get_row((tile.tile_x, tile.tile_y), (tile.dir+2)%4))#, cell.increment_with_divergers(tile.tile_x, tile.tile_y, tile.dir)
+            
+            if event.dict["key"] == pygame.K_r:
+                if keys[pygame.K_LCTRL] or keys[pygame.KMOD_META]:
+                    beep.play()
+                    reset()
 
             if event.dict["key"] == pygame.K_SPACE:
                 paused = not paused
@@ -399,9 +435,7 @@ while running:
 
     
 
-        
-    # Get pressed keys
-    keys: list[bool] = pygame.key.get_pressed()
+
 
     # Press CTRL to speed up scrolling
     if keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]:
@@ -490,7 +524,9 @@ while running:
     window.blit(pygame.transform.rotate(generators_icon_image, -90*brush_dir), generators_icon_rect)
     window.blit(pygame.transform.rotate(rotators_icon_image, -90*brush_dir), rotators_icon_rect)
     window.blit(pygame.transform.rotate(forcers_icon_image, -90*brush_dir), forcers_icon_rect)
+    window.blit(pygame.transform.rotate(divergers_icon_image, -90*brush_dir), divergers_icon_rect)
     window.blit(pygame.transform.rotate(destroyers_icon_image, -90*brush_dir), destroyers_icon_rect)
+    window.blit(pygame.transform.rotate(misc_icon_image, -90*brush_dir), misc_icon_rect)
 
     for button in toolbar_subicons:
         button.draw(window)
@@ -540,7 +576,7 @@ while running:
     image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     window.blit(image, initial_rect)
     
-    clock.tick(FPS)
+    clock.tick()
     if not paused:
         update_timer += clock.get_time()/1000
         if update_timer > step_speed:

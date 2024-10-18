@@ -7,7 +7,7 @@ from button import MenuSubItem
 # Initialize pygame
 pygame.init()
 
-def place_cell(x: int, y: int, id: int, dir: int):
+def place_cell(x: int, y: int, id: int | str, dir: int):
     '''Place a cell on the cell map'''
     if not (x >= 0 and x < GRID_WIDTH and y >= 0 and y < GRID_HEIGHT):
         return
@@ -35,7 +35,7 @@ def get_cell(x: int, y: int) -> Cell:
     else:
         return Cell(x, y, 0, 0)
 
-def get_all_cells(ids: list[int], dir: int) -> list[Cell]:
+def get_all_cells(ids: list[int], dir: list[int]) -> list[Cell]:
     '''Gets all the cells with a given ID and a direction, and orders them for sub-sub-ticking.'''
     def key_func(cell: Cell) -> int:
         match cell.dir:
@@ -47,6 +47,7 @@ def get_all_cells(ids: list[int], dir: int) -> list[Cell]:
                 return cell.tile_x*GRID_HEIGHT -cell.tile_y
             case 3:
                 return cell.tile_y*GRID_WIDTH + cell.tile_x
+        return -999
             
     result: list[Cell] = []
     cell: Cell
@@ -124,7 +125,7 @@ def copy_map(cm: dict[tuple[int, int], Cell]) -> dict[tuple[int, int], Cell]:
     key: tuple[int, int]
     value: Cell
     for key, value in zip(cm.keys(), cm.values()):
-        result[key] = value.copy()
+        result[key] = value.copy() # type: ignore
         value.tile_x = key[0]
         value.tile_y = key[1]
 
@@ -136,7 +137,6 @@ def set_initial():
     initial_cell_map = copy_map(cell_map)
     initial_above = copy_map(above)
     initial_below = copy_map(below)
-    tick_number = 0
 
 def reset():
     '''Resets the cell map to the initial cell map.'''
@@ -154,7 +154,7 @@ pygame.display.set_icon(icon)
 
 # Constants
 BACKGROUND: tuple[int, int, int] = (31, 31, 31)
-TILE_SIZE: int = 20
+TILE_SIZE: float = 20.0
 GRID_WIDTH: int = 100
 GRID_HEIGHT: int = 100
 TOOLBAR_HEIGHT: int = 54
@@ -164,13 +164,13 @@ clock: pygame.time.Clock = pygame.time.Clock()
 
 # Dynamic settings
 scroll_speed: int = 5
-border_tile: int = 1
+border_tile: int = 41
 current_menu: int = 0
 suppress_place: bool = False
 step_speed: float = 0.2
 
 # Brush settings
-brush: int = 4
+brush: int | str = 4
 brush_dir: int = 0 # 0 = right, 1 = down, 2 = left, 3 = up
 
 # Camera coords
@@ -257,11 +257,11 @@ destroyers_icon_rect.midleft = (7+7*54, WINDOW_HEIGHT - 27)
 misc_icon_rect: pygame.Rect = misc_icon_image.get_rect()
 misc_icon_rect.midleft = (7+9*54, WINDOW_HEIGHT - 27)
 
-toolbar_icon_rects: list[pygame.Rect] = [tools_icon_rect, basic_icon_rect, movers_icon_rect, generators_icon_rect, rotators_icon_rect, forcers_icon_rect, divergers_icon_rect, destroyers_icon_rect, None, misc_icon_rect]
+toolbar_icon_rects: list[pygame.Rect | None] = [tools_icon_rect, basic_icon_rect, movers_icon_rect, generators_icon_rect, rotators_icon_rect, forcers_icon_rect, divergers_icon_rect, destroyers_icon_rect, None, misc_icon_rect]
 toolbar_subicons: list[MenuSubItem] = []
 
 # Create submenu icons
-cell_id: int
+cell_id: int | str
 for cell_id in cell_images.keys():
     toolbar_subicons.append(MenuSubItem(cell_id))
     
@@ -317,7 +317,7 @@ while running:
     all_buttons = []
             
     # Get pressed keys
-    keys: list[bool] = pygame.key.get_pressed()
+    keys: list[bool]= pygame.key.get_pressed() # type: ignore
 
     # Event loop
     events = pygame.event.get()
@@ -422,7 +422,7 @@ while running:
                 i = 0
                 for tile in list(cell_map.values()):
                     if (tile.tile_x, tile.tile_y) == (world_mouse_tile_x, world_mouse_tile_y):
-                        print(cell.get_row((tile.tile_x, tile.tile_y), (tile.dir+2)%4))#, cell.increment_with_divergers(tile.tile_x, tile.tile_y, tile.dir)
+                        print()#, cell.increment_with_divergers(tile.tile_x, tile.tile_y, tile.dir)
             
             if event.dict["key"] == pygame.K_r:
                 if keys[pygame.K_LCTRL] or keys[pygame.KMOD_META]:
@@ -459,8 +459,8 @@ while running:
     mouse_x, mouse_y = pygame.mouse.get_pos()
     world_mouse_x = mouse_x + cam_x
     world_mouse_y = mouse_y + cam_y
-    world_mouse_tile_x = world_mouse_x//TILE_SIZE
-    world_mouse_tile_y = world_mouse_y//TILE_SIZE
+    world_mouse_tile_x = int(world_mouse_x//TILE_SIZE)
+    world_mouse_tile_y = int(world_mouse_y//TILE_SIZE)
 
     if play_rect.collidepoint(mouse_x, mouse_y):
         all_buttons.append(True)
@@ -508,7 +508,7 @@ while running:
     # Draw brush image
     brush_image = cell_images[brush].convert_alpha()
     alpha_img = pygame.Surface(brush_image.get_rect().size, pygame.SRCALPHA)
-    alpha_img.fill((255, 255, 255, 255*0.25))
+    alpha_img.fill((255, 255, 255, 255*0.25)) # type: ignore
     brush_image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     if True not in all_buttons:
         window.blit(pygame.transform.rotate(pygame.transform.scale(brush_image, (TILE_SIZE, TILE_SIZE)), -90*brush_dir), (world_mouse_tile_x*TILE_SIZE-cam_x, world_mouse_tile_y*TILE_SIZE-cam_y))
@@ -536,7 +536,7 @@ while running:
         if play_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 255, 255, 255))
         else:
-            alpha_img.fill((255, 255, 255, 255*0.5))
+            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
         image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         window.blit(image, play_rect)
     else:
@@ -545,7 +545,7 @@ while running:
         if pause_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 255, 255, 255))
         else:
-            alpha_img.fill((255, 255, 255, 255*0.5))
+            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
         image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         window.blit(image, pause_rect)
 
@@ -554,7 +554,7 @@ while running:
     if step_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 255, 255, 255))
     else:
-        alpha_img.fill((255, 255, 255, 255*0.5))
+        alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
     image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     window.blit(image, step_rect)
 
@@ -563,7 +563,7 @@ while running:
     if reset_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 255, 255, 255))
     else:
-        alpha_img.fill((255, 255, 255, 255*0.5))
+        alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
     image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     window.blit(image, reset_rect)
 
@@ -572,7 +572,7 @@ while running:
     if initial_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 255, 255, 255))
     else:
-        alpha_img.fill((255, 255, 255, 255*0.5))
+        alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
     image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     window.blit(image, initial_rect)
     

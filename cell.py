@@ -3,7 +3,7 @@ import pygame
 pygame.init()
 
 # Forward declaration
-class Cell:
+class Cell: # type: ignore
     pass
 
 cell_names: dict[int|str, str] = {
@@ -39,8 +39,10 @@ cell_names: dict[int|str, str] = {
     28: "advancer", #
     29: "impulsor", #
     30: "flipper", #
-    31: "bidiverger",
-    39: "crossdiverger",
+    31: "bidiverger", #
+    38: "straightdiverger", #
+    39: "crossdiverger", #
+    41: "ghost", #
 }
 
 cell_cats: list[list[int]] = [
@@ -50,7 +52,7 @@ cell_cats: list[list[int]] = [
     [3, 23, 26, 27],
     [9, 10, 11, 17, 18, 19, 30],
     [21, 29, 15, 18, 19],
-    [16, 31, 39],
+    [16, 31, 38, 39],
     [12, 13, 24],
     [],
     [20, 25]
@@ -92,7 +94,7 @@ chirality: dict[int|str, list[int]|int] = {
 
 }
 
-counterparts: dict[int, int] = {
+counterparts: dict[int | str, int] = {
     9: 10,
     10: 9,
     18: 19,
@@ -109,25 +111,25 @@ flip_guide: list[list[int]] = [
     [-1, 1, -1, 1]
 ]
 
-cell_images_raw: list[tuple[int, pygame.Surface]] = []
-cell_id: int
+cell_images_raw: list[tuple[int | str, pygame.Surface]] = []
+cell_id: int | str
 for cell_id in cell_names.keys():
     cell_images_raw.append((cell_id, pygame.image.load(f"textures/{cell_names[cell_id]}.png")))
 
-cell_images: dict[int, pygame.Surface] = dict(cell_images_raw)
+cell_images: dict[int | str, pygame.Surface] = dict(cell_images_raw)
 
 move_sound: pygame.mixer.Sound = pygame.mixer.Sound("audio/move.ogg")
 rot_sound: pygame.mixer.Sound = pygame.mixer.Sound("audio/rotate.ogg")
 trash_sound: pygame.mixer.Sound = pygame.mixer.Sound("audio/destroy.ogg")
 
-def get_row(coord: tuple[int, int], dir: int, force_dir: int) -> list[tuple[int, int, int, tuple[int, int], int]]:
+def get_row(coord: tuple[int, int], dir: int, force_dir: int) -> tuple[list[tuple[int, int, int, tuple[int, int], int]], list[tuple[int, int]], list[int], bool]:
     '''Gets a row from a cell in a direction.'''
     from main import cell_map
     #dx, dy = get_deltas(dir)
-    test: list[int, int] = (coord[0], coord[1], 0, (0.0, 0.0), dir)
+    test: tuple[int, int, int, tuple[int, int], int] = (coord[0], coord[1], int(0), (0, 0), dir)
     temp: Cell
-    incr: list[tuple[int, int, int, tuple[int, int], int]]
-    result: list[tuple[int, int]] = []
+    incr: tuple[int, int, int, tuple[int, int], int]
+    result: list[tuple[int, int, int, tuple[int, int], int]] = []
     deltas: list[tuple[int, int]] = []
     delt_dirs: list[int] = []
     fail = False
@@ -142,11 +144,13 @@ def get_row(coord: tuple[int, int], dir: int, force_dir: int) -> list[tuple[int,
         incr = increment_with_divergers(test[0], test[1], test[4])
         
         if (temp.tile_x, temp.tile_y) in [i[:2] for i in result]:
-            fail = True
-            break
-        result.append(tuple(test))
+            #fail = True
+            #break
+            pass
+        result.append(test)
         if temp.get_side((current_dir+2+dir-force_dir)%4) in ["trash", "wall", "enemy", "unpushable"]:
-            fail = True
+            if temp.get_side((current_dir+2+dir-force_dir)%4) in ["wall", "unpushable"]:
+                fail = True
             break
 
 
@@ -163,19 +167,21 @@ def get_row(coord: tuple[int, int], dir: int, force_dir: int) -> list[tuple[int,
 
 def get_deltas(dir: int) -> tuple[int, int]:
     '''Gets the delta values of a direction.'''
+    dx: int = 0
+    dy: int = 0
     match dir%4:
         case 0:
-            dx: int = 1
-            dy: int = 0
+            dx = 1
+            dy = 0
         case 1:
-            dx: int = 0
-            dy: int = 1
+            dx = 0
+            dy = 1
         case 2:
-            dx: int = -1
-            dy: int = 0
+            dx = -1
+            dy = 0
         case 3:
-            dx: int = 0
-            dy: int = -1
+            dx = 0
+            dy = -1
 
     return dx, dy
 
@@ -183,6 +189,8 @@ def swap_cells(a: tuple[int, int], b: tuple[int, int]):
     '''Swaps two cells in the cell map.'''
     import main
     a_flag, b_flag = False, False
+    first: Cell = Cell(0, 0, 0, 0)
+    second: Cell = Cell(0, 0, 0, 0)
     if a in main.cell_map.keys():
         first = main.cell_map[a]
         first.tile_x, first.tile_y = b[0], b[1]
@@ -229,20 +237,12 @@ def increment_with_divergers(x, y, dir: int) -> tuple[int, int, int, tuple[int, 
         else:
             break
 
-        if next_cell.id == 16:
-            if (next_cell.dir - current_dir)%4 == 1:
-                current_dir = (current_dir+1)%4
-            elif (next_cell.dir - current_dir)%4 == 2:
-                current_dir = (current_dir-1)%4
-            else:
-                break
-        elif next_cell.id == 39:
+        if next_cell.get_side((current_dir+2)%4) == "cwdiverger":
+            current_dir = (current_dir+1)%4
+        elif next_cell.get_side((current_dir+2)%4) == "ccwdiverger":
+            current_dir = (current_dir-1)%4
+        elif next_cell.get_side((current_dir+2)%4) == "diverger":
             pass
-        elif next_cell.id == 31:
-            if (next_cell.dir - current_dir)%2 == 1:
-                current_dir = (current_dir+1)%4
-            elif (next_cell.dir - current_dir)%2 == 0:
-                current_dir = (current_dir-1)%4
         else:
             break
 
@@ -250,7 +250,7 @@ def increment_with_divergers(x, y, dir: int) -> tuple[int, int, int, tuple[int, 
 
 class Cell(pygame.sprite.Sprite):
     '''A class to represent a cell.'''
-    def __init__(self, x: int, y: int, id: int, dir: int):
+    def __init__(self, x: int, y: int, id: int | str, dir: int):
         '''Initialize the cell.'''
         # Initialize the sprite
         super().__init__()
@@ -277,7 +277,7 @@ class Cell(pygame.sprite.Sprite):
 
         # Other cell variables
         self.hp: int = 1
-        self.generation: str = "normal"
+        self.generation: str | int = "normal"
         self.weight = 1
 
         # Push/pull variables
@@ -297,6 +297,14 @@ class Cell(pygame.sprite.Sprite):
             self.right = "wall"
             self.top = "wall"
             self.bottom = "wall"
+
+        # ghost
+        if self.id == 41:
+            self.left = "wall"
+            self.right = "wall"
+            self.top = "wall"
+            self.bottom = "wall"
+            self.generation = "ghost"
 
         # pushers
         if self.id in [2, 28]:
@@ -373,19 +381,39 @@ class Cell(pygame.sprite.Sprite):
             self.top = "weight"
             self.bottom = "weight"
 
+        if self.id == 16:
+            self.right = "ccwdiverger"
+            self.bottom = "cwdiverger"
+        
+        if self.id == 31:
+            self.right = "ccwdiverger"
+            self.bottom = "cwdiverger"
+            self.top = "cwdiverger"
+            self.left = "ccwdiverger"
+
+        if self.id == 38:
+            self.left = "diverger"
+            self.right = "diverger"
+        
+        if self.id == 39:
+            self.right = "diverger"
+            self.bottom = "diverger"
+            self.top = "diverger"
+            self.left = "diverger"
+
     def __repr__(self) -> str:
         '''Represent the cell as a string.'''
         return f"Cell at {self.tile_x}, {self.tile_y}, id {self.id}, direction {self.dir}"
     
     def copy(self) -> Cell:
         '''Copy constructor'''
-        return Cell(self.tile_x, self.tile_y, self.id, self.dir)
+        return Cell(self.tile_x, self.tile_y, self.id, self.dir) # type: ignore
 
     def update(self):
         '''Update the cell, once per frame'''
         from main import cam_x, cam_y, TILE_SIZE, cell_map
-        self.rect.x = self.tile_x*TILE_SIZE-cam_x
-        self.rect.y = self.tile_y*TILE_SIZE-cam_y
+        self.rect.x = int(self.tile_x*TILE_SIZE-cam_x)
+        self.rect.y = int(self.tile_y*TILE_SIZE-cam_y)
 
     def draw(self):
         '''Draw the cell on the screen'''
@@ -430,30 +458,7 @@ class Cell(pygame.sprite.Sprite):
         self.id = id
         self.image = cell_images[self.id]
 
-    def get_row(self, dir: int) -> list[tuple[int, int]]:
-        '''Object-method version of get_row()'''
-        from main import cell_map
-        dx, dy = get_deltas(dir)
-        test: list[int, int] = [self.tile_x, self.tile_y]
-        result: list[tuple[int, int]] = []
-        while True:
-            try:
-                temp = cell_map[tuple(test)]
-            except KeyError:
-                break
-            else:
-                result.append(tuple(test))
-                if temp.get_side((dir+2)%4) in ["trash", "wall", "enemy"]:
-                    break
-            
-            dx, dy = increment_with_divergers(test[0], test[1], dir)
-            test[0] += dx
-            test[1] += dy
-
-        return result
-    
-
-    def test_push(self, dir: int, move: bool, hp: int = 1) -> bool:
+    def test_push(self, dir: int, move: bool, hp: int = 1) -> bool | int:
         '''Tests a push, and returns False if failed'''
         from main import cell_map
         dx: int
@@ -466,9 +471,13 @@ class Cell(pygame.sprite.Sprite):
         enemy_flag = False
         killer_cell = None
         killer_cell_hp = 0
+        new_x: int = 0
+        new_y: int = 0
+        new_dir: int = 0
+
         if move:
-            new_x, new_y, new_dir, delta, _ = increment_with_divergers(self.tile_x, self.tile_y, dir)
-        for x, y, ddir, _, con_dir in row[1:]:
+            new_x, new_y, new_dir, _, _ = increment_with_divergers(self.tile_x, self.tile_y, dir)
+        for x, y, _, _, con_dir in row[1:]:
             cell = cell_map[x, y]
             if cell.get_side((con_dir+2)%4) == "wall" or cell.get_side((con_dir+2)%4) == "unpushable":
                  return False
@@ -508,7 +517,7 @@ class Cell(pygame.sprite.Sprite):
             if cell_map[row[-2][:2]] == self:
                 suicide_flag = True
             else:
-                del cell_map[row[-2]]
+                del cell_map[row[-2][:2]]
                 del row[2]
             killer_cell_hp = cell_map[killer_cell].hp
             cell_map[killer_cell].hp -= hp
@@ -520,11 +529,15 @@ class Cell(pygame.sprite.Sprite):
         
         move_sound.play()
         temp: list[Cell] = []
-        trace = []
-        current_dir = 0
         for x, y, _, _, _ in row[1:]:
-            temp.append(cell_map[(x, y)])
-            del cell_map[x,y]
+            if cell_map[(x, y)] is not self:
+                temp.append(cell_map[(x, y)].copy())
+            else:
+                temp.append(cell_map[(x, y)])
+        for cell in temp:
+            if (cell.tile_x, cell.tile_y) in cell_map.keys():
+                del cell_map[cell.tile_x, cell.tile_y]
+
         for i, item in enumerate(row[1:]):
             
             dx, dy = deltas[i+1]
@@ -557,7 +570,11 @@ class Cell(pygame.sprite.Sprite):
         from main import cell_map
         dx, dy = get_deltas(dir)
         push_flag = False
-        front_cell_coord = increment_with_divergers(self.tile_x, self.tile_y, dir)[:2]
+        new_x: int = 0
+        new_y: int = 0
+        new_dir: int = 0
+        killer_cell: tuple[int, int] = (0, 0)
+
         if move:
             row, deltas, ddirs, fail = get_row((self.tile_x, self.tile_y), (dir+2)%4, dir)
         else:
@@ -628,6 +645,7 @@ class Cell(pygame.sprite.Sprite):
         if bias <= 0:
             return False
         if fail and len(row) > 1:
+            print(row)
             return False
         
         if push_flag:
@@ -672,8 +690,10 @@ class Cell(pygame.sprite.Sprite):
     def test_swap(self, dir: int) -> bool:
         '''0: horizontal, 1: neg-diag, 2: vertical, 3: pos-diag'''
         from main import cell_map
-        front_flag = False
-        back_flag = False
+        dx1: int = 0
+        dy1: int = 0
+        dx2: int = 0
+        dy2: int = 0
         match dir:
             case 0:
                 dx1, dy1, dx2, dy2 = 1, 0, -1, 0
@@ -741,8 +761,11 @@ class Cell(pygame.sprite.Sprite):
             generated_cell: Cell = Cell(self.tile_x+odx, self.tile_y+ody, behind_cell.id, (behind_cell.dir+angle)%4)
         else: 
             return False
+        
+        if behind_cell.generation == "ghost":
+            return False
         behind_hp = self.test_push(dir, False, behind_cell.hp)
-        if behind_cell.generation == "ghost" or not self.test_push(dir, False, behind_cell.hp):
+        if not self.test_push(dir, False, behind_cell.hp):
             return False
         # Cells have already been pushed
         # Just create new cells if you have to
@@ -785,6 +808,8 @@ class Cell(pygame.sprite.Sprite):
             if surrounding_cells[i] in cell_map.keys():
                 cell_map[surrounding_cells[i]].dir += rot
                 cell_map[surrounding_cells[i]].dir %= 4
+
+        return True
             
     def test_freeze(self, dir: int) -> bool:
         from main import cell_map
@@ -897,6 +922,7 @@ class Cell(pygame.sprite.Sprite):
                 return [self.left, self.top, self.right, self.bottom][dir]
             case 3:
                 return [self.bottom, self.left, self.top, self.right][dir]
+        return "error"
 
 
         

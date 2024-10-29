@@ -1,5 +1,5 @@
 import pygame, sys
-from cell import Cell, cell_images
+from cell import Cell, cell_images, cell_cats
 import cell
 
 from button import MenuSubItem
@@ -40,13 +40,13 @@ def get_all_cells(ids: list[int], dir: list[int]) -> list[Cell]:
     def key_func(cell: Cell) -> int:
         match cell.dir:
             case 0:
-                return -cell.tile_x*GRID_HEIGHT - cell.tile_y
+                return +cell.tile_x*GRID_HEIGHT + cell.tile_y
             case 1:
-                return -cell.tile_y*GRID_WIDTH + cell.tile_x
+                return +cell.tile_y*GRID_WIDTH - cell.tile_x
             case 2: 
-                return cell.tile_x*GRID_HEIGHT -cell.tile_y
+                return -cell.tile_x*GRID_HEIGHT + cell.tile_y
             case 3:
-                return cell.tile_y*GRID_WIDTH + cell.tile_x
+                return -cell.tile_y*GRID_WIDTH - cell.tile_x
         return -999
             
     result: list[Cell] = []
@@ -62,28 +62,53 @@ def get_all_cells(ids: list[int], dir: list[int]) -> list[Cell]:
 def tick():
     '''Ticks the entire map.'''
     # Reset the suppression values
+    global tick_number
     cell: Cell
     for cell in cell_map.values():
         cell.suppressed = False
         cell.frozen = False
+        cell.protected = False
+        cell.old_x = cell.tile_x
+        cell.old_y = cell.tile_y
+        cell.old_dir = cell.dir
+        cell.eat_top = False
+        cell.eat_bottom = False
+        cell.eat_left = False
+        cell.eat_right = False
+        cell.delta_dir = 0
 
     i: int
+
+    delete_map.clear()
 
     # Do freezers
     for cell in get_all_cells([25], [0, 1, 2, 3]):
         for i in range(4):
             cell.tick(i)
 
+    for cell in get_all_cells([43], [0, 1, 2, 3]):
+        cell.tick(0)
+
     # Do mirrors
     for cell in get_all_cells([15], [0, 1, 2, 3]):
         cell.tick(0)
 
-    # Do generators
-    for cell in get_all_cells([3, 23, 26, 27], [0, 1, 2, 3]):
+    # Do intakers
+    for cell in get_all_cells([44], [0, 1, 2, 3]):
         for i in range(4):
             cell.tick(i)
 
-    # Do gearssd
+    # Do generators
+    for cell in get_all_cells([3, 23, 26, 27, 40], [0, 1, 2, 3]):
+        for i in range(4):
+            cell.tick(i)
+
+    # Do generators
+    for cell in get_all_cells([45, 46], [0, 1, 2, 3]):
+        for i in range(4):
+            cell.tick(i)
+
+    # Do gears
     for cell in get_all_cells([18, 19], [0, 1, 2, 3]):
         cell.tick(0)
 
@@ -119,6 +144,32 @@ def tick():
         for cell in get_all_cells([2], [i]):
             cell.tick(0)
 
+    # Gates
+    for cell in get_all_cells([32, 33, 34, 35, 36, 37], [0, 1, 2, 3]):
+        for i in range(4):
+            cell.tick(i)
+
+    tick_number += 1
+
+def draw():
+    # divergers
+    cell: Cell
+    if update_timer != 0:
+        for cell in delete_map:
+            cell.update()
+            cell.draw()
+    for cell in get_all_cells(cell_cats[1]+cell_cats[2]+cell_cats[4]+cell_cats[5]+cell_cats[7]+cell_cats[8]+cell_cats[9], [0, 1, 2, 3]):
+        cell.update()
+        cell.draw()
+    for cell in get_all_cells(cell_cats[3], [0, 1, 2, 3]):
+        cell.update()
+        cell.draw()
+    for cell in get_all_cells(cell_cats[6], [0, 1, 2, 3]):
+        cell.update()
+        cell.draw()
+    
+    
+
 def copy_map(cm: dict[tuple[int, int], Cell]) -> dict[tuple[int, int], Cell]:
     '''Deep-copies an entire cell map.'''
     result: dict[tuple[int, int], Cell] = {}
@@ -133,23 +184,63 @@ def copy_map(cm: dict[tuple[int, int], Cell]) -> dict[tuple[int, int], Cell]:
 
 def set_initial():
     '''Sets the initial map to the current cell map.'''
-    global initial_cell_map, initial_above, initial_below
+    global initial_cell_map, initial_above, initial_below, tick_number
     initial_cell_map = copy_map(cell_map)
     initial_above = copy_map(above)
     initial_below = copy_map(below)
+    tick_number = 0
 
 def reset():
     '''Resets the cell map to the initial cell map.'''
-    global cell_map, above, below
+    global cell_map, above, below, tick_number, paused
     cell_map = copy_map(initial_cell_map)
+    tick_number = 0
+    paused = True
+
+def trash():
+    global cell_map, tick_number, paused
+    cell_map = {}
+    i: int
+    for i in range(GRID_WIDTH):
+        cell_map[(i, -1)] = Cell(i, -1, border_tile, 0)
+        cell_map[(i, GRID_HEIGHT)] = Cell(i, GRID_HEIGHT, border_tile, 0)
+
+    # Create left and right border tiles
+    for i in range(GRID_HEIGHT):
+        cell_map[(-1, i)] = Cell(-1, i, border_tile, 0)
+        cell_map[(GRID_WIDTH, i)] = Cell(GRID_WIDTH, i, border_tile, 0)
+
+    # Create corner border tiles
+        cell_map[(-1, -1)] = Cell(-1, -1, border_tile, 0)
+        cell_map[(-1, GRID_HEIGHT)] = Cell(-1, GRID_HEIGHT, border_tile, 0)
+        cell_map[(GRID_WIDTH, -1)] = Cell(GRID_WIDTH, -1, border_tile, 0)
+        cell_map[(GRID_WIDTH, GRID_HEIGHT)] = Cell(GRID_WIDTH, GRID_HEIGHT, border_tile, 0)
+
+    tick_number = 0
+    paused = True
+
+
+def nokia(size):
+    return pygame.font.Font(resource_path("nokiafc22.ttf"), size)
+
+def resource_path(relative_path):
+    import os, sys
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 
 # Initialize the game window
 WINDOW_WIDTH: int = 800
 WINDOW_HEIGHT: int = 600
-window: pygame.Surface = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+window: pygame.Surface = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("CelPython Machine")
-icon: pygame.Surface = pygame.image.load("textures/icon.png")
+icon: pygame.Surface = pygame.image.load(resource_path("textures/icon.png"))
 pygame.display.set_icon(icon)
 
 # Constants
@@ -159,11 +250,15 @@ GRID_WIDTH: int = 100
 GRID_HEIGHT: int = 100
 TOOLBAR_HEIGHT: int = 54
 
-FPS: int = 60
+FPS: int = 180
 clock: pygame.time.Clock = pygame.time.Clock()
 
+fps_font = nokia(6)
+
+menu_on = False
+
 # Dynamic settings
-scroll_speed: int = 5
+scroll_speed: int = 250
 border_tile: int = 41
 current_menu: int = 0
 suppress_place: bool = False
@@ -189,8 +284,8 @@ paused: bool = True
 tick_number: int = 0
 
 # Images 
-bg_image: pygame.Surface = pygame.image.load("textures/bg.png")
-tools_icon_image: pygame.Surface = pygame.transform.scale(pygame.image.load("textures/eraser.png"), (40, 40))
+bg_image: pygame.Surface = pygame.image.load(resource_path("textures/bg.png"))
+tools_icon_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/eraser.png")), (40, 40))
 basic_icon_image: pygame.Surface = pygame.transform.scale(cell_images[4], (40, 40))
 movers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[2], (40, 40))
 generators_icon_image: pygame.Surface = pygame.transform.scale(cell_images[3], (40, 40))
@@ -202,30 +297,44 @@ misc_icon_image: pygame.Surface = pygame.transform.scale(cell_images[20], (40, 4
 
 play_image: pygame.Surface = pygame.transform.scale(cell_images[2], (40, 40))
 pause_image: pygame.Surface = pygame.transform.rotate(pygame.transform.scale(cell_images[5], (40, 40)), -90)
-step_image: pygame.Surface = pygame.transform.scale(pygame.image.load("textures/nudger.png"), (40, 40))
-reset_image: pygame.Surface = pygame.transform.scale(pygame.image.load("textures/rotator_180.png"), (40, 40))
-initial_image: pygame.Surface = pygame.transform.scale(pygame.image.load("textures/timewarper.png"), (40, 40))
+step_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/nudger.png")), (40, 40))
+reset_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/rotator_180.png")), (40, 40))
+initial_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/timewarper.png")), (40, 40))
 
-freeze_image: pygame.Surface = pygame.image.load("textures/effects/frozen.png")
+exit_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/delete.png")), (40, 40))
+clear_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/trash.png")), (40, 40))
+
+menu_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/menu.png")), (40, 40))
+
+menu_bg: pygame.Surface = pygame.image.load(resource_path("textures/menubg.png"))
+
+freeze_image: pygame.Surface = pygame.image.load(resource_path("textures/effects/frozen.png"))
+protect_image: pygame.Surface = pygame.image.load(resource_path("textures/effects/protected.png"))
 
 # Sounds
-beep: pygame.mixer.Sound = pygame.mixer.Sound("audio/beep.wav")
+beep: pygame.mixer.Sound = pygame.mixer.Sound(resource_path("audio/beep.wav"))
 
 brush_image: pygame.Surface
 alpha_img: pygame.Surface
 
 play_rect: pygame.Rect = play_image.get_rect()
-play_rect.topright = (WINDOW_WIDTH - 10, 10)
+play_rect.topright = (WINDOW_WIDTH - 20, 20)
 pause_rect: pygame.Rect = pause_image.get_rect()
-pause_rect.topright = (WINDOW_WIDTH - 10, 10)
+pause_rect.topright = (WINDOW_WIDTH - 20, 20)
 step_rect: pygame.Rect = step_image.get_rect()
-step_rect.topright = (WINDOW_WIDTH - 60, 10)
+step_rect.topright = (WINDOW_WIDTH - 70, 20)
 reset_rect: pygame.Rect = reset_image.get_rect()
-reset_rect.topright = (WINDOW_WIDTH - 10, 60)
+reset_rect.topright = (WINDOW_WIDTH - 20, 70)
 initial_rect: pygame.Rect = initial_image.get_rect()
-initial_rect.topright = (WINDOW_WIDTH - 60, 60)
+initial_rect.topright = (WINDOW_WIDTH - 70, 70)
 
-update_timer: float = 0
+menu_rect: pygame.Rect = menu_image.get_rect()
+menu_rect.topleft = (20, 20)
+
+menu_bg_rect: pygame.Rect = menu_bg.get_rect()
+menu_bg_rect.center = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2) 
+
+update_timer: float = step_speed
 
 
 
@@ -260,6 +369,18 @@ misc_icon_rect.midleft = (7+9*54, WINDOW_HEIGHT - 27)
 toolbar_icon_rects: list[pygame.Rect | None] = [tools_icon_rect, basic_icon_rect, movers_icon_rect, generators_icon_rect, rotators_icon_rect, forcers_icon_rect, divergers_icon_rect, destroyers_icon_rect, None, misc_icon_rect]
 toolbar_subicons: list[MenuSubItem] = []
 
+continue_rect: pygame.Rect = play_image.get_rect()
+continue_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+
+menu_reset_rect: pygame.Rect = reset_image.get_rect()
+menu_reset_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*1, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+
+clear_rect: pygame.Rect = clear_image.get_rect()
+clear_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*2, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+
+exit_rect: pygame.Rect = exit_image.get_rect()
+exit_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*6, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+
 # Create submenu icons
 cell_id: int | str
 for cell_id in cell_images.keys():
@@ -268,6 +389,7 @@ for cell_id in cell_images.keys():
 
 # Initialize cell maps
 cell_map: dict[tuple[int, int], Cell] = {}
+delete_map = []
 above: dict[tuple[int, int], Cell] = {}
 below: dict[tuple[int, int], Cell] = {}
 
@@ -278,8 +400,8 @@ initial_below: dict[tuple[int, int], Cell] = {}
 
 
 # Play music
-#pygame.mixer.music.load("audio/scattered cells.ogg")
-#pygame.mixer.music.play(-1)
+pygame.mixer.music.load(resource_path("audio/scattered cells.ogg"))
+pygame.mixer.music.play(-1)
 
 keys: list[bool]
 mouse_buttons: tuple[bool, bool, bool] = (False, False, False)
@@ -305,6 +427,13 @@ for i in range(GRID_HEIGHT):
 
 set_initial()
 
+# Text
+title_text: pygame.Surface = nokia(15).render("CelPython Machine", True, (255, 255, 255))
+title_rect = title_text.get_rect()
+title_rect.midtop = (WINDOW_WIDTH//2, menu_bg_rect.top + 10)
+
+stepping = False
+
 # Loop-only variables
 all_buttons: list[bool]
 keys: list[bool]
@@ -314,6 +443,8 @@ event: pygame.event.Event
 # Main game loop
 running: bool = True
 while running:
+    WINDOW_HEIGHT = window.get_height()
+    WINDOW_WIDTH = window.get_width()
     all_buttons = []
             
     # Get pressed keys
@@ -344,7 +475,7 @@ while running:
                     cam_x = (cam_x + mouse_x/2)*2
                     cam_y = (cam_y + mouse_y/2)*2
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
+        if event.type == pygame.MOUSEBUTTONUP:
             if tools_icon_rect.collidepoint(mouse_x, mouse_y):
                 brush = 0
             if basic_icon_rect.collidepoint(mouse_x, mouse_y):
@@ -400,6 +531,24 @@ while running:
                 beep.play()
                 set_initial()
 
+            if menu_rect.collidepoint(mouse_x, mouse_y):
+                menu_on = not menu_on
+            if continue_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                menu_on = False
+                beep.play()
+                all_buttons.append(True)
+            if exit_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                beep.play()
+                running = False
+
+            if menu_reset_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                beep.play()
+                reset()
+
+            if clear_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                beep.play()
+                trash()
+
             if event.dict["button"] == 2:
                 picked_cell = get_cell(world_mouse_tile_x, world_mouse_tile_y)
                 brush = picked_cell.id
@@ -417,6 +566,8 @@ while running:
 
             if event.dict["key"] == pygame.K_f:
                 tick()
+                stepping = True
+                update_timer = step_speed
 
             if event.dict["key"] == pygame.K_t:
                 i = 0
@@ -425,11 +576,17 @@ while running:
                         print()#, cell.increment_with_divergers(tile.tile_x, tile.tile_y, tile.dir)
             
             if event.dict["key"] == pygame.K_r:
-                if keys[pygame.K_LCTRL] or keys[pygame.KMOD_META]:
+                if keys[pygame.K_LCTRL] or keys[pygame.K_LMETA]:
                     beep.play()
                     reset()
 
+            if event.dict["key"] == pygame.K_ESCAPE:
+                menu_on = not menu_on
+
             if event.dict["key"] == pygame.K_SPACE:
+                if paused:
+                    tick()
+                    update_timer = step_speed
                 paused = not paused
 
 
@@ -439,19 +596,19 @@ while running:
 
     # Press CTRL to speed up scrolling
     if keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]:
-        scroll_speed = 10
+        scroll_speed = 500
     else:
-        scroll_speed = 5
+        scroll_speed = 250
     
     # WASD to move the camera
     if keys[pygame.K_w] or keys[pygame.K_UP]:
-        cam_y -= scroll_speed
+        cam_y -= scroll_speed*dt
     if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-        cam_x -= scroll_speed
+        cam_x -= scroll_speed*dt
     if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-        cam_y += scroll_speed
+        cam_y += scroll_speed*dt
     if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-        cam_x += scroll_speed
+        cam_x += scroll_speed*dt
 
 
     # Get pressed mouse buttons
@@ -469,6 +626,10 @@ while running:
     if reset_rect.collidepoint(mouse_x, mouse_y):
         all_buttons.append(True)
     if initial_rect.collidepoint(mouse_x, mouse_y):
+        all_buttons.append(True)
+    if menu_rect.collidepoint(mouse_x, mouse_y):
+        all_buttons.append(True)
+    if menu_bg_rect.collidepoint(mouse_x, mouse_y) and menu_on:
         all_buttons.append(True)
 
     # Check for a press suppression
@@ -497,12 +658,13 @@ while running:
     j: int
     for i in range(GRID_WIDTH):
         for j in range(GRID_HEIGHT):
-            window.blit(pygame.transform.scale(bg_image, (TILE_SIZE, TILE_SIZE)), (TILE_SIZE*i-cam_x, TILE_SIZE*j-cam_y))
+            if not (TILE_SIZE*i-cam_x+TILE_SIZE < 0 or TILE_SIZE*i-cam_x > WINDOW_WIDTH or TILE_SIZE*j-cam_y+TILE_SIZE < 0 or TILE_SIZE*j-cam_y > WINDOW_HEIGHT):
+                #if (i, j) not in cell_map.keys():
+                    window.blit(pygame.transform.scale(bg_image, (TILE_SIZE, TILE_SIZE)), (TILE_SIZE*i-cam_x, TILE_SIZE*j-cam_y))
 
-    # Draw tiles
-    for tile in cell_map.values():
-        tile.update()
-        tile.draw()
+
+    draw()
+    
 
 
     # Draw brush image
@@ -517,6 +679,16 @@ while running:
     pygame.draw.rect(window, (60, 60, 60), pygame.Rect(-10, WINDOW_HEIGHT-TOOLBAR_HEIGHT, WINDOW_WIDTH+20, TOOLBAR_HEIGHT+10))
     pygame.draw.rect(window, (127, 127, 127), pygame.Rect(-10, WINDOW_HEIGHT-TOOLBAR_HEIGHT, WINDOW_WIDTH+20, TOOLBAR_HEIGHT+10), 1)
 
+    # Update toolbar positions\
+    tools_icon_rect.midleft = (7, WINDOW_HEIGHT - 27)
+    basic_icon_rect.midleft = (7+1*54, WINDOW_HEIGHT - 27)
+    movers_icon_rect.midleft = (7+2*54, WINDOW_HEIGHT - 27)
+    generators_icon_rect.midleft = (7+3*54, WINDOW_HEIGHT - 27)
+    rotators_icon_rect.midleft = (7+4*54, WINDOW_HEIGHT - 27)
+    forcers_icon_rect.midleft = (7+5*54, WINDOW_HEIGHT - 27)
+    divergers_icon_rect.midleft = (7+6*54, WINDOW_HEIGHT - 27)
+    destroyers_icon_rect.midleft = (7+7*54, WINDOW_HEIGHT - 27)
+    misc_icon_rect.midleft = (7+9*54, WINDOW_HEIGHT - 27)
     # Blit toolbar icons
     window.blit(pygame.transform.rotate(tools_icon_image, 0), tools_icon_rect)
     window.blit(pygame.transform.rotate(basic_icon_image, -90*brush_dir), basic_icon_rect)
@@ -535,6 +707,8 @@ while running:
         alpha_img = pygame.Surface(play_rect.size, pygame.SRCALPHA)
         if play_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 255, 255, 255))
+            if mouse_buttons[0]:
+                alpha_img.fill((128, 128, 128, 255))
         else:
             alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
         image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
@@ -544,15 +718,24 @@ while running:
         alpha_img = pygame.Surface(pause_rect.size, pygame.SRCALPHA)
         if pause_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 255, 255, 255))
+            if mouse_buttons[0]:
+                alpha_img.fill((128, 128, 128, 255))
         else:
             alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
         image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         window.blit(image, pause_rect)
 
+    play_rect.topright = (WINDOW_WIDTH - 20, 20)
+    pause_rect.topright = (WINDOW_WIDTH - 20, 20)
+    step_rect.topright = (WINDOW_WIDTH - 70, 20)
+    reset_rect.topright = (WINDOW_WIDTH - 20, 70)
+    initial_rect.topright = (WINDOW_WIDTH - 70, 70)
     image = step_image.convert_alpha()
     alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
     if step_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 255, 255, 255))
+        alpha_img.fill((255, 255, 255, 255))
+        if mouse_buttons[0]:
+            alpha_img.fill((128, 128, 128, 255))
     else:
         alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
     image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
@@ -561,7 +744,9 @@ while running:
     image = reset_image.convert_alpha()
     alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
     if reset_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 255, 255, 255))
+        alpha_img.fill((255, 255, 255, 255))
+        if mouse_buttons[0]:
+            alpha_img.fill((128, 128, 128, 255))
     else:
         alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
     image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
@@ -570,20 +755,99 @@ while running:
     image = initial_image.convert_alpha()
     alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
     if initial_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 255, 255, 255))
+        alpha_img.fill((255, 255, 255, 255))
+        if mouse_buttons[0]:
+            alpha_img.fill((128, 128, 128, 255))
     else:
         alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
     image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     window.blit(image, initial_rect)
+
+    image = menu_image.convert_alpha()
+    alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
+    if menu_rect.collidepoint(mouse_x, mouse_y):
+        alpha_img.fill((255, 255, 255, 255))
+        if mouse_buttons[0]:
+            alpha_img.fill((128, 128, 128, 255))
+    else:
+        alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+    image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    window.blit(image, menu_rect)
+    title_rect.midtop = (WINDOW_WIDTH//2, menu_bg_rect.top + 10)
+    menu_bg_rect.center = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
+    continue_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+    menu_reset_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*1, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+    clear_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*2, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+    exit_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*6, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
     
-    clock.tick()
+    if menu_on:
+        window.blit(menu_bg, menu_bg_rect)
+        window.blit(title_text, title_rect)
+        image = play_image.convert_alpha()
+        alpha_img = pygame.Surface(continue_rect.size, pygame.SRCALPHA)
+        if continue_rect.collidepoint(mouse_x, mouse_y):
+            alpha_img.fill((255, 255, 255, 255))
+            if mouse_buttons[0]:
+                alpha_img.fill((128, 128, 128, 255))
+        else:
+            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        window.blit(image, continue_rect)
+
+        image = exit_image.convert_alpha()
+        alpha_img = pygame.Surface(continue_rect.size, pygame.SRCALPHA)
+        if exit_rect.collidepoint(mouse_x, mouse_y):
+            alpha_img.fill((255, 128, 128, 255))
+            if mouse_buttons[0]:
+                alpha_img.fill((128, 64, 64, 255))
+        else:
+            alpha_img.fill((255, 128, 128, 255*0.5)) # type: ignore
+        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        window.blit(image, exit_rect)
+
+        image = reset_image.convert_alpha()
+        alpha_img = pygame.Surface(menu_reset_rect.size, pygame.SRCALPHA)
+        if menu_reset_rect.collidepoint(mouse_x, mouse_y):
+            alpha_img.fill((255, 255, 255, 255))
+            if mouse_buttons[0]:
+                alpha_img.fill((128, 128, 128, 255))
+        else:
+            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        window.blit(image, menu_reset_rect)
+
+        image = clear_image.convert_alpha()
+        alpha_img = pygame.Surface(clear_rect.size, pygame.SRCALPHA)
+        if clear_rect.collidepoint(mouse_x, mouse_y):
+            alpha_img.fill((255, 255, 255, 255))
+            if mouse_buttons[0]:
+                alpha_img.fill((128, 128, 128, 255))
+        else:
+            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        window.blit(image, clear_rect)
+
+
+    clock.tick(60)
+    dt = clock.get_time() / 1000
     if not paused:
-        update_timer += clock.get_time()/1000
-        if update_timer > step_speed:
-            update_timer -= step_speed
+        update_timer -= dt
+        if update_timer < 0:
+            while update_timer < 0:
+                update_timer += step_speed
             tick()
     else:
-        update_timer = 0
+        if update_timer > 0:
+            update_timer -= dt
+        else:
+            update_timer = 0
+
+    coord_text = fps_font.render(f"({world_mouse_tile_x}, {world_mouse_tile_y})", True, (255, 255, 255))
+    coord_rect = coord_text.get_rect()
+    coord_rect.topright = (WINDOW_WIDTH, 4)
+    window.blit(fps_font.render(f"FPS: {str(clock.get_fps())}", True, (255, 255, 255)), (0, 4))
+    window.blit(fps_font.render(f"Tick: {str(tick_number)}", True, (255, 255, 255)), (0, 13))
+    window.blit(coord_text, coord_rect)
 
 
     # Update the display

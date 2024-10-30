@@ -56,6 +56,8 @@ cell_names: dict[int|str, str] = {
     45: "replicator", #
     46: "crossreplicator", #
     47: "fungal", #
+    #48: "forker", #
+    #49: "triforker", #
 }
 
 
@@ -422,6 +424,30 @@ class Cell(pygame.sprite.Sprite):
                 print(cell.id)
                 cell.set_id(47)
 
+        if self.id in [48, 49]:
+            if "forker" in self.get_side((dir+2)%4):
+                self.gen((dir-1)%4, 3, cell.id, suppress=True)
+                #cell_map[new_cell_1.tile_x, new_cell_1.tile_y] = new_cell_1
+                #new_cell_1.suppressed = True
+
+                '''new_cell_2: Cell = cell.copy()
+                dx2, dy2 = get_deltas((dir+1)%4)
+                new_cell_2.tile_x = self.tile_x+dx2
+                new_cell_2.tile_y = self.tile_y+dy2
+                new_cell_2.rot(1)
+                self.test_push((dir+1)%4, False)
+                cell_map[self.tile_x+dx2, self.tile_y+dy2] = new_cell_2
+                new_cell_2.suppressed = True
+
+                if self.get_side((dir+2)%4) == "triforker":
+                    new_cell_3: Cell = cell.copy()
+                    dx3, dy3 = get_deltas((dir)%4)
+                    new_cell_3.tile_x = self.tile_x+dx3
+                    new_cell_3.tile_y = self.tile_y+dy3
+                    self.test_push((dir)%4, False)
+                    cell_map[self.tile_x+dx3, self.tile_y+dy3] = new_cell_3
+                    new_cell_3.suppressed = True'''
+
     def set_id(self, id: int):
         '''Setter to set the id, while changing the image'''
         self.id = id
@@ -578,6 +604,10 @@ class Cell(pygame.sprite.Sprite):
                 self.top = "fungal"
                 self.left = "fungal"
                 self.bottom = "fungal"
+            case 48:
+                self.left = "forker"
+            case 49:
+                self.left = "triforker"
 
     def test_push(self, dir: int, move: bool, hp: int = 1) -> bool | int:
         '''Tests a push, and returns False if failed'''
@@ -603,11 +633,12 @@ class Cell(pygame.sprite.Sprite):
             affected_cells.append((x, y, _, __, con_dir))
             cell = cell_map[x, y]
             if cell.get_side((con_dir+2)%4) == "wall" or cell.get_side((con_dir+2)%4) == "unpushable":
-                 return False
-            if  "trash" in cell.get_side((dir)%4) :
-                print("Yes")
+                cell.on_force(con_dir, cell_map[affected_cells[-2][:2]])
+                return False
+            if  ("trash" in cell.get_side((dir+2)%4)) or ("forker" in cell.get_side((dir+2)%4)):
                 trash_flag = True
-            if "enemy" in cell.get_side((dir)%4):
+                break
+            if "enemy" in cell.get_side((dir+2)%4):
                 if not cell_map[affected_cells[-2][:2]].protected and not cell.protected:
                     enemy_flag = True
                     break
@@ -634,17 +665,19 @@ class Cell(pygame.sprite.Sprite):
 
         if trash_flag:
             killer_cell = row[-1]
-            if move or len(row) > 2:                
-                trash_sound.play()
+            if move or len(row) > 2:
+                if "trash" in cell_map[killer_cell[:2]].get_side((dir+2)%4):             
+                    trash_sound.play()
                 cell_map[row[-2][:2]].die_flag = True
 
-                cell_map[killer_cell[:2]].on_force(killer_cell[4])
+                cell_map[killer_cell[:2]].on_force(killer_cell[4], cell_map[row[-2][:2]])
             if cell_map[row[-2][:2]] == self:
                 suicide_flag = True
             else:
                 cell_map[row[-2][:2]].tile_x = killer_cell[0]
                 cell_map[row[-2][:2]].tile_y = killer_cell[1]
-                delete_map.append(cell_map[row[-2][:2]])
+                if "forker" not in cell_map[killer_cell[:2]].get_side((dir+2)%4):  
+                    delete_map.append(cell_map[row[-2][:2]])
                 del cell_map[row[-2][:2]]
             del row[-2]
             del row[-1]
@@ -705,7 +738,8 @@ class Cell(pygame.sprite.Sprite):
                 self.tile_y = killer_cell[1]
                 self.rot(new_dir)
                 if trash_flag:
-                    delete_map.append(self)
+                    if "forker" not in cell_map[killer_cell[:2]].get_side((dir+2)%4):  
+                        delete_map.append(self)
         if self.pushes:
             self.suppressed = True
         if killer_cell is not None:
@@ -751,13 +785,14 @@ class Cell(pygame.sprite.Sprite):
                 front_cell = cell_map[new_x, new_y]
                 if front_cell.pushes:
                     push_flag = True
-                if front_cell.id in [12, 13, 24]:
+                if front_cell.get_side(dir) in ["trash", "enemy"]:
                     killer_cell = (new_x, new_y)
                     if move:
                         suicide_flag = True
                         if cell_map[killer_cell].id in [13, 24]:
                             if not self.protected:
                                 enemy_flag = True
+                        cell_map[killer_cell].on_force(self.dir + new_dir, self)
                 else:
                     if move:
                         if (not (push_flag or front_cell.pushes)):
@@ -832,6 +867,10 @@ class Cell(pygame.sprite.Sprite):
             pulled_cells = row[1:]
         else:
             pulled_cells = row
+
+        if move:
+            if len(temp) > 0:
+                temp[0].on_force((self.dir+new_dir)%4, self)
         for i, item in enumerate(pulled_cells):
             
             dx, dy = deltas[i]
@@ -839,6 +878,7 @@ class Cell(pygame.sprite.Sprite):
             temp[i].tile_x -= dx
             temp[i].tile_y -= dy
             temp[i].rot(-ddirs[i])
+            temp[i].on_force(item[4], temp[i-1])
 
 
         return True
@@ -903,7 +943,7 @@ class Cell(pygame.sprite.Sprite):
         target_cell.rot((-target_cell.dir+rot+1)%4-1)
         return True
     
-    def test_gen(self, dir: int, angle: int, twist: bool = False, clone: bool = False) -> bool:
+    def test_gen(self, dir: int, angle: int, twist: bool = False, clone: bool = False, suppress: bool = False) -> bool:
         from main import cell_map
 
         dx: int
@@ -940,10 +980,44 @@ class Cell(pygame.sprite.Sprite):
                 return False
             if twist:
                 generated_cell.flip((dir*2+2)%4)
+            if suppress:
+                generated_cell.suppressed = True
             cell_map[(self.tile_x + odx, self.tile_y + ody)] = generated_cell
             return True
         else:
             return False
+        
+    def gen(self, dir, angle, cell, suppress=False, twist=False):
+        from main import cell_map
+        generated_cell = Cell(self.tile_x, self.tile_y, cell, (dir+angle)%4)
+        behind_hp = self.test_push(dir, False, generated_cell.hp)
+        dx, dy = get_deltas(dir-angle)
+        odx, ody = get_deltas(dir)
+        print(behind_hp)
+        if not behind_hp:
+            return False
+        print("gen")
+        # Cells have already been pushed
+        # Just create new cells if you have to
+        if (self.tile_x + odx, self.tile_y + ody) not in cell_map.keys():
+            generated_cell.hp = behind_hp
+            generated_cell.tile_x = self.tile_x+odx
+            generated_cell.tile_y = self.tile_y+ody
+            if generated_cell.hp == 1 and generated_cell.id == 24:
+                generated_cell.set_id(13)
+            if generated_cell.hp == 0:
+                return True
+            if generated_cell.generation != 'normal':
+                return False
+            if twist:
+                generated_cell.flip((dir*2+2)%4)
+            if suppress:
+                generated_cell.suppressed = True
+            cell_map[(self.tile_x + odx, self.tile_y + ody)] = generated_cell
+            return True
+        else:
+            return False
+
         
     def test_replicate(self, dir: int) -> bool:
         self.test_gen(dir, 2, clone=True)

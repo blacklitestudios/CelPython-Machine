@@ -1,5 +1,6 @@
 import pygame, sys
-from cell import Cell, cell_images, cell_cats
+import math
+from cell import Cell, cell_images, cell_cats, rot_center
 import cell
 
 from button import MenuSubItem
@@ -35,29 +36,47 @@ def get_cell(x: int, y: int) -> Cell:
     else:
         return Cell(x, y, 0, 0)
 
-def get_all_cells(ids: list[int], dir: list[int]) -> list[Cell]:
+def get_all_cells() -> list[Cell]:
     '''Gets all the cells with a given ID and a direction, and orders them for sub-sub-ticking.'''
-    def key_func(cell: Cell) -> int:
-        match cell.dir:
-            case 0:
-                return +cell.tile_x*GRID_HEIGHT + cell.tile_y
-            case 1:
-                return +cell.tile_y*GRID_WIDTH - cell.tile_x
-            case 2: 
-                return -cell.tile_x*GRID_HEIGHT + cell.tile_y
-            case 3:
-                return -cell.tile_y*GRID_WIDTH - cell.tile_x
-        return -999
             
     result: list[Cell] = []
     cell: Cell
     for cell in cell_map.values():
-        if cell.id in ids and cell.dir in dir:
-            result.append(cell)
-
-    result.sort(key=key_func)
+        if cell.tile_x < 0 or cell.tile_y < 0 or cell.tile_x >= GRID_WIDTH or cell.tile_y >= GRID_HEIGHT:
+            continue
+        result.append(cell)
 
     return result
+
+def reverse(cell: Cell) -> int:
+    if cell.tile_x < 0 or cell.tile_y < 0 or cell.tile_x >= GRID_WIDTH or cell.tile_y >= GRID_HEIGHT:
+        return float("-infinity")
+    match cell.dir:
+        case 0:
+            return +cell.tile_x*GRID_HEIGHT - cell.tile_y
+        case 1:
+            return +cell.tile_y*GRID_WIDTH + cell.tile_x
+        case 2: 
+            return -cell.tile_x*GRID_HEIGHT - cell.tile_y
+        case 3:
+            return -cell.tile_y*GRID_WIDTH + cell.tile_x
+    return float("-infinity")
+
+def forward(cell: Cell) -> int:
+    if cell.tile_x < 0 or cell.tile_y < 0 or cell.tile_x >= GRID_WIDTH or cell.tile_y >= GRID_HEIGHT:
+        return float("-infinity")
+    match cell.dir:
+        case 0:
+            return -cell.tile_x*GRID_HEIGHT + cell.tile_y
+        case 1:
+            return -cell.tile_y*GRID_WIDTH - cell.tile_x
+        case 2: 
+            return +cell.tile_x*GRID_HEIGHT + cell.tile_y
+        case 3:
+            return +cell.tile_y*GRID_WIDTH - cell.tile_x
+    return float("-infinity")
+
+
 
 def tick():
     '''Ticks the entire map.'''
@@ -81,73 +100,100 @@ def tick():
 
     delete_map.clear()
 
-    # Do freezers
-    for cell in get_all_cells([25], [0, 1, 2, 3]):
-        for i in range(4):
-            cell.tick(i)
+    all_cells = get_all_cells()
+    temp = list(all_cells)
+    temp.sort(key=forward)
 
-    for cell in get_all_cells([43], [0, 1, 2, 3]):
-        cell.tick(0)
+    temp2 = temp[:]
+    temp2.sort(key=reverse)
 
-    # Do mirrors
-    for cell in get_all_cells([15], [0, 1, 2, 3]):
-        cell.tick(0)
+    # Do freezers (subtick 9)
+    for i in range(4):
+        for cell in cell_map.values():
+            cell.do_freeze(i)
 
-    # Do intakers
-    for cell in get_all_cells([44], [0, 1, 2, 3]):
-        for i in range(4):
-            cell.tick(i)
+    # Do shields (subtick 10)
+    for cell in cell_map.values():
+        cell.do_protect()
 
-    # Do generators
-    for cell in get_all_cells([3, 23, 26, 27, 40], [0, 1, 2, 3]):
-        for i in range(4):
-            cell.tick(i)
+    # Do mirrors (subtick 38 & 41)
+    for cell in sorted(get_all_cells(), key=forward):
+        cell.do_mirror(0, 4)
 
-    # Do generators
-    for cell in get_all_cells([45, 46], [0, 1, 2, 3]):
-        for i in range(4):
-            cell.tick(i)
+    for cell in sorted(get_all_cells(), key=forward):
+        cell.do_mirror(2, 6)
+
+    # Do intakers subticks 70 to 73
+    for i in [0, 2, 3, 1]:
+        for cell in sorted(get_all_cells(), key=forward):
+            cell.do_intake(i)
+
+    # Do generators subticks 90 to 93
+    for i in [0, 2, 3, 1]:
+        for cell in sorted(get_all_cells(), key=reverse):
+            cell.do_super_gen(i)
+
+    # Do generators subticks 90 to 93
+    for i in [0, 2, 3, 1]:
+        for cell in sorted(get_all_cells(), key=reverse):
+            cell.do_gen(i)
+
+    # Do replicators subticks 102 to 105
+    for i in range(4):
+        for cell in sorted(get_all_cells(), key=reverse):
+            cell.do_replicate(i)
 
     # Do gears
-    for cell in get_all_cells([18, 19], [0, 1, 2, 3]):
-        cell.tick(0)
+    for cell in sorted(get_all_cells(), key=forward):
+        cell.do_gear(1)
 
-    # Do flippers
-    for cell in get_all_cells([30], [0, 1, 2, 3]):
-        cell.tick(0)
+    for cell in sorted(get_all_cells(), key=forward):
+        cell.do_gear(-1)
+
+    # Do flippers (subtick 115)
+    for cell in sorted(get_all_cells(), key=forward):
+        cell.do_flip()
 
     # Do rotators
-    for cell in get_all_cells([9, 10, 11], [0, 1, 2, 3]):
-        cell.tick(0)
+    for cell in sorted(get_all_cells(), key=forward):
+        cell.do_rot()
 
     # Do redirectors
-    for cell in get_all_cells([17], [0, 1, 2, 3]):
-        cell.tick(0)
+    for cell in sorted(get_all_cells(), key=forward):
+        cell.do_replicate(cell.dir)
     
     # Do impulsors
     for i in [0, 2, 3, 1]:
-        for cell in get_all_cells([29], [0, 1, 2, 3]):
-            cell.tick(i)
-    
+        for cell in sorted(get_all_cells(), key=forward):
+            cell.do_impulse(i)
+
+    # Do super repulsors
+    for i in [0, 2, 3, 1]:
+        for cell in sorted(get_all_cells(), key=forward):
+            cell.do_super_repulse(i)
+
     # Do repulsors
     for i in [0, 2, 3, 1]:
-        for cell in get_all_cells([21], [0, 1, 2, 3]):
-            cell.tick(i)
-
-    # Do pullers
-    for i in range(4):
-        for cell in get_all_cells([14, 28], [i]):
-            cell.tick(0)
+        for cell in sorted(get_all_cells(), key=forward):
+            cell.do_repulse(i)
 
     # Do movers
     for i in range(4):
-        for cell in get_all_cells([2], [i]):
-            cell.tick(0)
+        for cell in sorted(get_all_cells(), key=forward):
+            cell.do_drill(i)
+    for i in range(4):
+        for cell in sorted(get_all_cells(), key=forward):
+            cell.do_pull(i)
+
+    for i in range(4):
+        for cell in sorted(get_all_cells(), key=reverse):
+            cell.do_push(i)
+
 
     # Gates
-    for cell in get_all_cells([32, 33, 34, 35, 36, 37], [0, 1, 2, 3]):
+    for cell in sorted(get_all_cells(), key=reverse):
         for i in range(4):
-            cell.tick(i)
+            cell.do_gate(i)
 
     tick_number += 1
 
@@ -158,13 +204,7 @@ def draw():
         for cell in delete_map:
             cell.update()
             cell.draw()
-    for cell in get_all_cells(cell_cats[1]+cell_cats[2]+cell_cats[4]+cell_cats[5]+cell_cats[7]+cell_cats[8]+cell_cats[9], [0, 1, 2, 3]):
-        cell.update()
-        cell.draw()
-    for cell in get_all_cells(cell_cats[3], [0, 1, 2, 3]):
-        cell.update()
-        cell.draw()
-    for cell in get_all_cells(cell_cats[6], [0, 1, 2, 3]):
+    for cell in cell_map.values(): 
         cell.update()
         cell.draw()
     
@@ -219,6 +259,9 @@ def trash():
     tick_number = 0
     paused = True
 
+    set_initial()
+    reset()
+
 
 def nokia(size):
     return pygame.font.Font(resource_path("nokiafc22.ttf"), size)
@@ -233,6 +276,7 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
+
 
 
 # Initialize the game window
@@ -381,6 +425,17 @@ clear_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*2, WI
 exit_rect: pygame.Rect = exit_image.get_rect()
 exit_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*6, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
 
+logo_image = pygame.image.load("textures/logo.png")
+logo_rect = logo_image.get_rect()
+logo_rect.midbottom = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
+
+start_play_image = pygame.transform.scale(pygame.image.load("textures/mover.png"), (60, 60))
+start_play_rect = start_play_image.get_rect()
+start_play_rect.midtop = (WINDOW_WIDTH//2, logo_rect.bottom + 20)
+
+quit_rect: pygame.Rect = exit_image.get_rect()
+quit_rect.topright = (WINDOW_WIDTH - 20, 20)
+
 # Create submenu icons
 cell_id: int | str
 for cell_id in cell_images.keys():
@@ -400,8 +455,8 @@ initial_below: dict[tuple[int, int], Cell] = {}
 
 
 # Play music
-pygame.mixer.music.load(resource_path("audio/scattered cells.ogg"))
-pygame.mixer.music.play(-1)
+#pygame.mixer.music.load(resource_path("audio/scattered cells.ogg"))
+#pygame.mixer.music.play(-1)
 
 keys: list[bool]
 mouse_buttons: tuple[bool, bool, bool] = (False, False, False)
@@ -430,9 +485,11 @@ set_initial()
 # Text
 title_text: pygame.Surface = nokia(15).render("CelPython Machine", True, (255, 255, 255))
 title_rect = title_text.get_rect()
-title_rect.midtop = (WINDOW_WIDTH//2, menu_bg_rect.top + 10)
+title_rect.midbottom = (WINDOW_WIDTH//2, WINDOW_WIDTH//2)
 
 stepping = False
+
+t = 0
 
 # Loop-only variables
 all_buttons: list[bool]
@@ -442,6 +499,7 @@ event: pygame.event.Event
 
 # Main game loop
 running: bool = True
+screen = "title"
 while running:
     WINDOW_HEIGHT = window.get_height()
     WINDOW_WIDTH = window.get_width()
@@ -450,391 +508,451 @@ while running:
     # Get pressed keys
     keys: list[bool]= pygame.key.get_pressed() # type: ignore
 
+        # Get pressed mouse buttons
+    mouse_buttons = pygame.mouse.get_pressed()
+    mouse_x, mouse_y = pygame.mouse.get_pos()
+
     # Event loop
     events = pygame.event.get()
     for event in events:
         if event.type == pygame.QUIT:
             # Player wants to quit
             running = False
-        if event.type == pygame.MOUSEWHEEL:
-            # Player is scrolling
-            if event.dict["y"] == -1:
-                # Scrolling down
-                TILE_SIZE /= 2
-                if TILE_SIZE < 1.25:
-                    TILE_SIZE = 1.25
-                else:
-                    cam_x = cam_x/2 - mouse_x/2
-                    cam_y = cam_y/2 - mouse_y/2
-            if event.dict["y"] == 1:
-                # Scrolling up
-                TILE_SIZE *= 2
-                if TILE_SIZE > 80:
-                    TILE_SIZE = 80
-                else:
-                    cam_x = (cam_x + mouse_x/2)*2
-                    cam_y = (cam_y + mouse_y/2)*2
 
-        if event.type == pygame.MOUSEBUTTONUP:
-            if tools_icon_rect.collidepoint(mouse_x, mouse_y):
-                brush = 0
-            if basic_icon_rect.collidepoint(mouse_x, mouse_y):
-                if current_menu == 1:
-                    current_menu = -1
-                else:
-                    current_menu = 1
-            if movers_icon_rect.collidepoint(mouse_x, mouse_y):
-                if current_menu == 2:
-                    current_menu = -1
-                else:
-                    current_menu = 2
-            if generators_icon_rect.collidepoint(mouse_x, mouse_y):
-                if current_menu == 3:
-                    current_menu = -1
-                else:
-                    current_menu = 3
-            if rotators_icon_rect.collidepoint(mouse_x, mouse_y):
-                if current_menu == 4:
-                    current_menu = -1
-                else:
-                    current_menu = 4
-            if forcers_icon_rect.collidepoint(mouse_x, mouse_y):
-                if current_menu == 5:
-                    current_menu = -1
-                else:
-                    current_menu = 5
-            if divergers_icon_rect.collidepoint(mouse_x, mouse_y):
-                if current_menu == 6:
-                    current_menu = -1
-                else:
-                    current_menu = 6
-            if destroyers_icon_rect.collidepoint(mouse_x, mouse_y):
-                if current_menu == 7:
-                    current_menu = -1
-                else:
-                    current_menu = 7
+    if screen == "game":
+        for event in events:
+            if event.type == pygame.MOUSEWHEEL:
+                # Player is scrolling
+                if event.dict["y"] == -1:
+                    # Scrolling down
+                    TILE_SIZE /= 2
+                    if TILE_SIZE < 1.25:
+                        TILE_SIZE = 1.25
+                    else:
+                        cam_x = cam_x/2 - mouse_x/2
+                        cam_y = cam_y/2 - mouse_y/2
+                if event.dict["y"] == 1:
+                    # Scrolling up
+                    TILE_SIZE *= 2
+                    if TILE_SIZE > 160:
+                        TILE_SIZE = 160
+                    else:
+                        cam_x = (cam_x + mouse_x/2)*2
+                        cam_y = (cam_y + mouse_y/2)*2
 
-            if misc_icon_rect.collidepoint(mouse_x, mouse_y):
-                if current_menu == 9:
-                    current_menu = -1
-                else:
-                    current_menu = 9
-            
-            if play_rect.collidepoint(mouse_x, mouse_y):
-                paused = not paused
-            if step_rect.collidepoint(mouse_x, mouse_y):
-                tick()
-            if reset_rect.collidepoint(mouse_x, mouse_y):
-                beep.play()
-                reset()
-            if initial_rect.collidepoint(mouse_x, mouse_y):
-                beep.play()
-                set_initial()
+            if event.type == pygame.MOUSEBUTTONUP:
+                if tools_icon_rect.collidepoint(mouse_x, mouse_y):
+                    brush = 0
+                if basic_icon_rect.collidepoint(mouse_x, mouse_y):
+                    if current_menu == 1:
+                        current_menu = -1
+                    else:
+                        current_menu = 1
+                if movers_icon_rect.collidepoint(mouse_x, mouse_y):
+                    if current_menu == 2:
+                        current_menu = -1
+                    else:
+                        current_menu = 2
+                if generators_icon_rect.collidepoint(mouse_x, mouse_y):
+                    if current_menu == 3:
+                        current_menu = -1
+                    else:
+                        current_menu = 3
+                if rotators_icon_rect.collidepoint(mouse_x, mouse_y):
+                    if current_menu == 4:
+                        current_menu = -1
+                    else:
+                        current_menu = 4
+                if forcers_icon_rect.collidepoint(mouse_x, mouse_y):
+                    if current_menu == 5:
+                        current_menu = -1
+                    else:
+                        current_menu = 5
+                if divergers_icon_rect.collidepoint(mouse_x, mouse_y):
+                    if current_menu == 6:
+                        current_menu = -1
+                    else:
+                        current_menu = 6
+                if destroyers_icon_rect.collidepoint(mouse_x, mouse_y):
+                    if current_menu == 7:
+                        current_menu = -1
+                    else:
+                        current_menu = 7
 
-            if menu_rect.collidepoint(mouse_x, mouse_y):
-                menu_on = not menu_on
-            if continue_rect.collidepoint(mouse_x, mouse_y) and menu_on:
-                menu_on = False
-                beep.play()
-                all_buttons.append(True)
-            if exit_rect.collidepoint(mouse_x, mouse_y) and menu_on:
-                beep.play()
-                running = False
-
-            if menu_reset_rect.collidepoint(mouse_x, mouse_y) and menu_on:
-                beep.play()
-                reset()
-
-            if clear_rect.collidepoint(mouse_x, mouse_y) and menu_on:
-                beep.play()
-                trash()
-
-            if event.dict["button"] == 2:
-                picked_cell = get_cell(world_mouse_tile_x, world_mouse_tile_y)
-                brush = picked_cell.id
-                brush_dir = picked_cell.dir
-
+                if misc_icon_rect.collidepoint(mouse_x, mouse_y):
+                    if current_menu == 9:
+                        current_menu = -1
+                    else:
+                        current_menu = 9
                 
-        
-        if event.type == pygame.KEYDOWN:
-            if event.dict["key"] == pygame.K_q:
-                brush_dir -= 1
-                brush_dir = brush_dir % 4
-            if event.dict["key"] == pygame.K_e:
-                brush_dir += 1
-                brush_dir = brush_dir % 4
+                if play_rect.collidepoint(mouse_x, mouse_y):
+                    paused = not paused
+                if step_rect.collidepoint(mouse_x, mouse_y):
+                    tick()
+                if reset_rect.collidepoint(mouse_x, mouse_y):
+                    beep.play()
+                    reset()
+                if initial_rect.collidepoint(mouse_x, mouse_y):
+                    beep.play()
+                    set_initial()
 
-            if event.dict["key"] == pygame.K_f:
-                tick()
-                stepping = True
-                update_timer = step_speed
+                if menu_rect.collidepoint(mouse_x, mouse_y):
+                    menu_on = not menu_on
+                if continue_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                    menu_on = False
+                    beep.play()
+                    all_buttons.append(True)
+                if exit_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                    beep.play()
+                    screen = "title"
 
-            if event.dict["key"] == pygame.K_t:
-                i = 0
-                for tile in list(cell_map.values()):
-                    if (tile.tile_x, tile.tile_y) == (world_mouse_tile_x, world_mouse_tile_y):
-                        print()#, cell.increment_with_divergers(tile.tile_x, tile.tile_y, tile.dir)
-            
-            if event.dict["key"] == pygame.K_r:
-                if keys[pygame.K_LCTRL] or keys[pygame.K_LMETA]:
+                if menu_reset_rect.collidepoint(mouse_x, mouse_y) and menu_on:
                     beep.play()
                     reset()
 
-            if event.dict["key"] == pygame.K_ESCAPE:
-                menu_on = not menu_on
+                if clear_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                    beep.play()
+                    trash()
 
-            if event.dict["key"] == pygame.K_SPACE:
-                if paused:
+                if event.dict["button"] == 2:
+                    picked_cell = get_cell(world_mouse_tile_x, world_mouse_tile_y)
+                    brush = picked_cell.id
+                    brush_dir = picked_cell.dir
+
+                for button in toolbar_subicons:
+                    button.update(mouse_buttons, mouse_x, mouse_y, brush, current_menu)
+
+                    
+            
+            if event.type == pygame.KEYDOWN:
+                if event.dict["key"] == pygame.K_q:
+                    brush_dir -= 1
+                    brush_dir = brush_dir % 4
+                if event.dict["key"] == pygame.K_e:
+                    brush_dir += 1
+                    brush_dir = brush_dir % 4
+
+                if event.dict["key"] == pygame.K_f:
                     tick()
+                    stepping = True
                     update_timer = step_speed
-                paused = not paused
+
+                if event.dict["key"] == pygame.K_t:
+                    i = 0
+                    for tile in list(cell_map.values()):
+                        if (tile.tile_x, tile.tile_y) == (world_mouse_tile_x, world_mouse_tile_y):
+                            print()#, cell.increment_with_divergers(tile.tile_x, tile.tile_y, tile.dir)
+                
+                if event.dict["key"] == pygame.K_r:
+                    if keys[pygame.K_LCTRL] or keys[pygame.K_LMETA]:
+                        beep.play()
+                        reset()
+
+                if event.dict["key"] == pygame.K_ESCAPE:
+                    menu_on = not menu_on
+
+                if event.dict["key"] == pygame.K_SPACE:
+                    if paused:
+                        tick()
+                        update_timer = step_speed
+                    paused = not paused
 
 
-    
+
+        # Press CTRL to speed up scrolling
+        if keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]:
+            scroll_speed = 500
+        else:
+            scroll_speed = 250
+        
+        # WASD to move the camera
+        if keys[pygame.K_w] or keys[pygame.K_UP]:
+            cam_y -= scroll_speed*dt
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+            cam_x -= scroll_speed*dt
+        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
+            cam_y += scroll_speed*dt
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+            cam_x += scroll_speed*dt
 
 
 
-    # Press CTRL to speed up scrolling
-    if keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]:
-        scroll_speed = 500
-    else:
-        scroll_speed = 250
-    
-    # WASD to move the camera
-    if keys[pygame.K_w] or keys[pygame.K_UP]:
-        cam_y -= scroll_speed*dt
-    if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-        cam_x -= scroll_speed*dt
-    if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-        cam_y += scroll_speed*dt
-    if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-        cam_x += scroll_speed*dt
+        world_mouse_x = mouse_x + cam_x
+        world_mouse_y = mouse_y + cam_y
+        world_mouse_tile_x = int(world_mouse_x//TILE_SIZE)
+        world_mouse_tile_y = int(world_mouse_y//TILE_SIZE)
 
-
-    # Get pressed mouse buttons
-    mouse_buttons = pygame.mouse.get_pressed()
-    mouse_x, mouse_y = pygame.mouse.get_pos()
-    world_mouse_x = mouse_x + cam_x
-    world_mouse_y = mouse_y + cam_y
-    world_mouse_tile_x = int(world_mouse_x//TILE_SIZE)
-    world_mouse_tile_y = int(world_mouse_y//TILE_SIZE)
-
-    if play_rect.collidepoint(mouse_x, mouse_y):
-        all_buttons.append(True)
-    if step_rect.collidepoint(mouse_x, mouse_y):
-        all_buttons.append(True)
-    if reset_rect.collidepoint(mouse_x, mouse_y):
-        all_buttons.append(True)
-    if initial_rect.collidepoint(mouse_x, mouse_y):
-        all_buttons.append(True)
-    if menu_rect.collidepoint(mouse_x, mouse_y):
-        all_buttons.append(True)
-    if menu_bg_rect.collidepoint(mouse_x, mouse_y) and menu_on:
-        all_buttons.append(True)
-
-    # Check for a press suppression
-    button: MenuSubItem
-    for button in toolbar_subicons:
-        all_buttons.append(button.update(mouse_buttons))
-    if True in all_buttons:
-        suppress_place = True
-    else:
-        suppress_place = False
-
-    # Place tiles if possible
-    if mouse_y < WINDOW_HEIGHT - 54 and not suppress_place:       
-        if mouse_buttons[0]:
-            place_cell(world_mouse_tile_x, world_mouse_tile_y, brush, brush_dir)
-        if mouse_buttons[2]:
-            place_cell(world_mouse_tile_x, world_mouse_tile_y, 0, 0)
-    
-    # Reset background
-    window.fill(BACKGROUND, window.get_rect())
-
-    # Get border tile image
-    border_image = cell_images[border_tile]
-
-    i: int
-    j: int
-    for i in range(GRID_WIDTH):
-        for j in range(GRID_HEIGHT):
-            if not (TILE_SIZE*i-cam_x+TILE_SIZE < 0 or TILE_SIZE*i-cam_x > WINDOW_WIDTH or TILE_SIZE*j-cam_y+TILE_SIZE < 0 or TILE_SIZE*j-cam_y > WINDOW_HEIGHT):
-                #if (i, j) not in cell_map.keys():
-                    window.blit(pygame.transform.scale(bg_image, (TILE_SIZE, TILE_SIZE)), (TILE_SIZE*i-cam_x, TILE_SIZE*j-cam_y))
-
-
-    draw()
-    
-
-
-    # Draw brush image
-    brush_image = cell_images[brush].convert_alpha()
-    alpha_img = pygame.Surface(brush_image.get_rect().size, pygame.SRCALPHA)
-    alpha_img.fill((255, 255, 255, 255*0.25)) # type: ignore
-    brush_image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    if True not in all_buttons:
-        window.blit(pygame.transform.rotate(pygame.transform.scale(brush_image, (TILE_SIZE, TILE_SIZE)), -90*brush_dir), (world_mouse_tile_x*TILE_SIZE-cam_x, world_mouse_tile_y*TILE_SIZE-cam_y))
-
-    # Draw bottom toolbar
-    pygame.draw.rect(window, (60, 60, 60), pygame.Rect(-10, WINDOW_HEIGHT-TOOLBAR_HEIGHT, WINDOW_WIDTH+20, TOOLBAR_HEIGHT+10))
-    pygame.draw.rect(window, (127, 127, 127), pygame.Rect(-10, WINDOW_HEIGHT-TOOLBAR_HEIGHT, WINDOW_WIDTH+20, TOOLBAR_HEIGHT+10), 1)
-
-    # Update toolbar positions\
-    tools_icon_rect.midleft = (7, WINDOW_HEIGHT - 27)
-    basic_icon_rect.midleft = (7+1*54, WINDOW_HEIGHT - 27)
-    movers_icon_rect.midleft = (7+2*54, WINDOW_HEIGHT - 27)
-    generators_icon_rect.midleft = (7+3*54, WINDOW_HEIGHT - 27)
-    rotators_icon_rect.midleft = (7+4*54, WINDOW_HEIGHT - 27)
-    forcers_icon_rect.midleft = (7+5*54, WINDOW_HEIGHT - 27)
-    divergers_icon_rect.midleft = (7+6*54, WINDOW_HEIGHT - 27)
-    destroyers_icon_rect.midleft = (7+7*54, WINDOW_HEIGHT - 27)
-    misc_icon_rect.midleft = (7+9*54, WINDOW_HEIGHT - 27)
-    # Blit toolbar icons
-    window.blit(pygame.transform.rotate(tools_icon_image, 0), tools_icon_rect)
-    window.blit(pygame.transform.rotate(basic_icon_image, -90*brush_dir), basic_icon_rect)
-    window.blit(pygame.transform.rotate(movers_icon_image, -90*brush_dir), movers_icon_rect)
-    window.blit(pygame.transform.rotate(generators_icon_image, -90*brush_dir), generators_icon_rect)
-    window.blit(pygame.transform.rotate(rotators_icon_image, -90*brush_dir), rotators_icon_rect)
-    window.blit(pygame.transform.rotate(forcers_icon_image, -90*brush_dir), forcers_icon_rect)
-    window.blit(pygame.transform.rotate(divergers_icon_image, -90*brush_dir), divergers_icon_rect)
-    window.blit(pygame.transform.rotate(destroyers_icon_image, -90*brush_dir), destroyers_icon_rect)
-    window.blit(pygame.transform.rotate(misc_icon_image, -90*brush_dir), misc_icon_rect)
-
-    for button in toolbar_subicons:
-        button.draw(window)
-    if paused:
-        image = play_image.convert_alpha()
-        alpha_img = pygame.Surface(play_rect.size, pygame.SRCALPHA)
         if play_rect.collidepoint(mouse_x, mouse_y):
+            all_buttons.append(True)
+        if step_rect.collidepoint(mouse_x, mouse_y):
+            all_buttons.append(True)
+        if reset_rect.collidepoint(mouse_x, mouse_y):
+            all_buttons.append(True)
+        if initial_rect.collidepoint(mouse_x, mouse_y):
+            all_buttons.append(True)
+        if menu_rect.collidepoint(mouse_x, mouse_y):
+            all_buttons.append(True)
+        if menu_bg_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+            all_buttons.append(True)
+
+        # Check for a press suppression
+        button: MenuSubItem
+        for button in toolbar_subicons:
+            all_buttons.append(button.update(mouse_buttons, mouse_x, mouse_y, brush, current_menu))
+
+        if True in all_buttons:
+            suppress_place = True
+        else:
+            suppress_place = False
+
+        # Place tiles if possible
+        if mouse_y < WINDOW_HEIGHT - 54 and not suppress_place:       
+            if mouse_buttons[0]:
+                place_cell(world_mouse_tile_x, world_mouse_tile_y, brush, brush_dir)
+            if mouse_buttons[2]:
+                place_cell(world_mouse_tile_x, world_mouse_tile_y, 0, 0)
+        
+        # Reset background
+        window.fill(BACKGROUND, window.get_rect())
+
+        # Get border tile image
+        border_image = cell_images[border_tile]
+
+        i: int
+        j: int
+        for i in range(GRID_WIDTH):
+            for j in range(GRID_HEIGHT):
+                if not (TILE_SIZE*i-cam_x+TILE_SIZE < 0 or TILE_SIZE*i-cam_x > WINDOW_WIDTH or TILE_SIZE*j-cam_y+TILE_SIZE < 0 or TILE_SIZE*j-cam_y > WINDOW_HEIGHT):
+                    #if (i, j) not in cell_map.keys():
+                        window.blit(pygame.transform.scale(bg_image, (TILE_SIZE, TILE_SIZE)), (TILE_SIZE*i-cam_x, TILE_SIZE*j-cam_y))
+
+
+        draw()
+        
+
+
+        # Draw brush image
+        brush_image = cell_images[brush].convert_alpha()
+        alpha_img = pygame.Surface(brush_image.get_rect().size, pygame.SRCALPHA)
+        alpha_img.fill((255, 255, 255, 255*0.25)) # type: ignore
+        brush_image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        if True not in all_buttons:
+            window.blit(pygame.transform.rotate(pygame.transform.scale(brush_image, (TILE_SIZE, TILE_SIZE)), -90*brush_dir), (world_mouse_tile_x*TILE_SIZE-cam_x, world_mouse_tile_y*TILE_SIZE-cam_y))
+
+        # Draw bottom toolbar
+        pygame.draw.rect(window, (60, 60, 60), pygame.Rect(-10, WINDOW_HEIGHT-TOOLBAR_HEIGHT, WINDOW_WIDTH+20, TOOLBAR_HEIGHT+10))
+        pygame.draw.rect(window, (127, 127, 127), pygame.Rect(-10, WINDOW_HEIGHT-TOOLBAR_HEIGHT, WINDOW_WIDTH+20, TOOLBAR_HEIGHT+10), 1)
+
+        # Update toolbar positions\
+        tools_icon_rect.midleft = (7, WINDOW_HEIGHT - 27)
+        basic_icon_rect.midleft = (7+1*54, WINDOW_HEIGHT - 27)
+        movers_icon_rect.midleft = (7+2*54, WINDOW_HEIGHT - 27)
+        generators_icon_rect.midleft = (7+3*54, WINDOW_HEIGHT - 27)
+        rotators_icon_rect.midleft = (7+4*54, WINDOW_HEIGHT - 27)
+        forcers_icon_rect.midleft = (7+5*54, WINDOW_HEIGHT - 27)
+        divergers_icon_rect.midleft = (7+6*54, WINDOW_HEIGHT - 27)
+        destroyers_icon_rect.midleft = (7+7*54, WINDOW_HEIGHT - 27)
+        misc_icon_rect.midleft = (7+9*54, WINDOW_HEIGHT - 27)
+        # Blit toolbar icons
+        window.blit(pygame.transform.rotate(tools_icon_image, 0), tools_icon_rect)
+        window.blit(pygame.transform.rotate(basic_icon_image, -90*brush_dir), basic_icon_rect)
+        window.blit(pygame.transform.rotate(movers_icon_image, -90*brush_dir), movers_icon_rect)
+        window.blit(pygame.transform.rotate(generators_icon_image, -90*brush_dir), generators_icon_rect)
+        window.blit(pygame.transform.rotate(rotators_icon_image, -90*brush_dir), rotators_icon_rect)
+        window.blit(pygame.transform.rotate(forcers_icon_image, -90*brush_dir), forcers_icon_rect)
+        window.blit(pygame.transform.rotate(divergers_icon_image, -90*brush_dir), divergers_icon_rect)
+        window.blit(pygame.transform.rotate(destroyers_icon_image, -90*brush_dir), destroyers_icon_rect)
+        window.blit(pygame.transform.rotate(misc_icon_image, -90*brush_dir), misc_icon_rect)
+
+        for button in toolbar_subicons:
+            button.draw(window)
+        if paused:
+            image = play_image.convert_alpha()
+            alpha_img = pygame.Surface(play_rect.size, pygame.SRCALPHA)
+            if play_rect.collidepoint(mouse_x, mouse_y):
+                alpha_img.fill((255, 255, 255, 255))
+                if mouse_buttons[0]:
+                    alpha_img.fill((128, 128, 128, 255))
+            else:
+                alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            window.blit(image, play_rect)
+        else:
+            image = pause_image.convert_alpha()
+            alpha_img = pygame.Surface(pause_rect.size, pygame.SRCALPHA)
+            if pause_rect.collidepoint(mouse_x, mouse_y):
+                alpha_img.fill((255, 255, 255, 255))
+                if mouse_buttons[0]:
+                    alpha_img.fill((128, 128, 128, 255))
+            else:
+                alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            window.blit(image, pause_rect)
+
+        play_rect.topright = (WINDOW_WIDTH - 20, 20)
+        pause_rect.topright = (WINDOW_WIDTH - 20, 20)
+        step_rect.topright = (WINDOW_WIDTH - 70, 20)
+        reset_rect.topright = (WINDOW_WIDTH - 20, 70)
+        initial_rect.topright = (WINDOW_WIDTH - 70, 70)
+        image = step_image.convert_alpha()
+        alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
+        if step_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 255, 255, 255))
             if mouse_buttons[0]:
                 alpha_img.fill((128, 128, 128, 255))
         else:
             alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
         image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, play_rect)
-    else:
-        image = pause_image.convert_alpha()
-        alpha_img = pygame.Surface(pause_rect.size, pygame.SRCALPHA)
-        if pause_rect.collidepoint(mouse_x, mouse_y):
+        window.blit(image, step_rect)
+
+        image = reset_image.convert_alpha()
+        alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
+        if reset_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 255, 255, 255))
             if mouse_buttons[0]:
                 alpha_img.fill((128, 128, 128, 255))
         else:
             alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
         image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, pause_rect)
+        window.blit(image, reset_rect)
 
-    play_rect.topright = (WINDOW_WIDTH - 20, 20)
-    pause_rect.topright = (WINDOW_WIDTH - 20, 20)
-    step_rect.topright = (WINDOW_WIDTH - 70, 20)
-    reset_rect.topright = (WINDOW_WIDTH - 20, 70)
-    initial_rect.topright = (WINDOW_WIDTH - 70, 70)
-    image = step_image.convert_alpha()
-    alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
-    if step_rect.collidepoint(mouse_x, mouse_y):
-        alpha_img.fill((255, 255, 255, 255))
-        if mouse_buttons[0]:
-            alpha_img.fill((128, 128, 128, 255))
-    else:
-        alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-    image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    window.blit(image, step_rect)
-
-    image = reset_image.convert_alpha()
-    alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
-    if reset_rect.collidepoint(mouse_x, mouse_y):
-        alpha_img.fill((255, 255, 255, 255))
-        if mouse_buttons[0]:
-            alpha_img.fill((128, 128, 128, 255))
-    else:
-        alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-    image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    window.blit(image, reset_rect)
-
-    image = initial_image.convert_alpha()
-    alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
-    if initial_rect.collidepoint(mouse_x, mouse_y):
-        alpha_img.fill((255, 255, 255, 255))
-        if mouse_buttons[0]:
-            alpha_img.fill((128, 128, 128, 255))
-    else:
-        alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-    image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    window.blit(image, initial_rect)
-
-    image = menu_image.convert_alpha()
-    alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
-    if menu_rect.collidepoint(mouse_x, mouse_y):
-        alpha_img.fill((255, 255, 255, 255))
-        if mouse_buttons[0]:
-            alpha_img.fill((128, 128, 128, 255))
-    else:
-        alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-    image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    window.blit(image, menu_rect)
-    title_rect.midtop = (WINDOW_WIDTH//2, menu_bg_rect.top + 10)
-    menu_bg_rect.center = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
-    continue_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
-    menu_reset_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*1, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
-    clear_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*2, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
-    exit_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*6, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
-    
-    if menu_on:
-        window.blit(menu_bg, menu_bg_rect)
-        window.blit(title_text, title_rect)
-        image = play_image.convert_alpha()
-        alpha_img = pygame.Surface(continue_rect.size, pygame.SRCALPHA)
-        if continue_rect.collidepoint(mouse_x, mouse_y):
+        image = initial_image.convert_alpha()
+        alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
+        if initial_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 255, 255, 255))
             if mouse_buttons[0]:
                 alpha_img.fill((128, 128, 128, 255))
         else:
             alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
         image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, continue_rect)
+        window.blit(image, initial_rect)
+
+        image = menu_image.convert_alpha()
+        alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
+        if menu_rect.collidepoint(mouse_x, mouse_y):
+            alpha_img.fill((255, 255, 255, 255))
+            if mouse_buttons[0]:
+                alpha_img.fill((128, 128, 128, 255))
+        else:
+            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        window.blit(image, menu_rect)
+        title_rect.midtop = (WINDOW_WIDTH//2, menu_bg_rect.top + 10)
+        menu_bg_rect.center = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
+        continue_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+        menu_reset_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*1, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+        clear_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*2, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+        exit_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*6, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+        
+        if menu_on:
+            window.blit(menu_bg, menu_bg_rect)
+            window.blit(title_text, title_rect)
+            image = play_image.convert_alpha()
+            alpha_img = pygame.Surface(continue_rect.size, pygame.SRCALPHA)
+            if continue_rect.collidepoint(mouse_x, mouse_y):
+                alpha_img.fill((255, 255, 255, 255))
+                if mouse_buttons[0]:
+                    alpha_img.fill((128, 128, 128, 255))
+            else:
+                alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            window.blit(image, continue_rect)
+
+            image = exit_image.convert_alpha()
+            alpha_img = pygame.Surface(continue_rect.size, pygame.SRCALPHA)
+            if exit_rect.collidepoint(mouse_x, mouse_y):
+                alpha_img.fill((255, 128, 128, 255))
+                if mouse_buttons[0]:
+                    alpha_img.fill((128, 64, 64, 255))
+            else:
+                alpha_img.fill((255, 128, 128, 255*0.5)) # type: ignore
+            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            window.blit(image, exit_rect)
+
+            image = reset_image.convert_alpha()
+            alpha_img = pygame.Surface(menu_reset_rect.size, pygame.SRCALPHA)
+            if menu_reset_rect.collidepoint(mouse_x, mouse_y):
+                alpha_img.fill((255, 255, 255, 255))
+                if mouse_buttons[0]:
+                    alpha_img.fill((128, 128, 128, 255))
+            else:
+                alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            window.blit(image, menu_reset_rect)
+
+            image = clear_image.convert_alpha()
+            alpha_img = pygame.Surface(clear_rect.size, pygame.SRCALPHA)
+            if clear_rect.collidepoint(mouse_x, mouse_y):
+                alpha_img.fill((255, 255, 255, 255))
+                if mouse_buttons[0]:
+                    alpha_img.fill((128, 128, 128, 255))
+            else:
+                alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            window.blit(image, clear_rect)
+
+            update_delay_text = nokia(10).render(f"Update delay: {step_speed}", True, (255, 255, 255))
+            update_delay_rect = update_delay_text.get_rect()
+            update_delay_rect.topleft = (menu_bg_rect.x + 20, menu_bg_rect.y + 40)
+            window.blit(update_delay_text, update_delay_rect)
+
+        
+
+
+    elif screen == "title":
+        # Event loop
+        for event in events:
+            if event.type == pygame.MOUSEBUTTONUP:
+                if mouse_buttons[0] and start_play_rect.collidepoint(mouse_x, mouse_y):
+                    screen = "game"
+                    trash()
+                    menu_on = False
+                    TILE_SIZE = 20.0
+                    cam_x = 0
+                    cam_y = 0
+                if mouse_buttons[0] and quit_rect.collidepoint(mouse_x, mouse_y):
+                    running = False
+        window.fill(BACKGROUND, window.get_rect())
+        #logo_image, _ = rot_center(logo_image, logo_rect, math.sin(t))
+        logo_rect.midbottom = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
+        window.blit(cell.rot_center(logo_image, logo_rect, math.sin(t)*5)[0], cell.rot_center(logo_image, logo_rect, math.sin(t)*5)[1])       
+
+        start_play_rect.midtop = (WINDOW_WIDTH//2, logo_rect.bottom + 20)
+        image = start_play_image.convert_alpha()
+        alpha_img = pygame.Surface(start_play_rect.size, pygame.SRCALPHA)
+        if start_play_rect.collidepoint(mouse_x, mouse_y):
+            alpha_img.fill((255, 255, 255, 255))
+            if mouse_buttons[0]:
+                alpha_img.fill((128, 128, 128, 255))
+        else:
+            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
+        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        window.blit(image, start_play_rect)
+        quit_rect.topright = (WINDOW_WIDTH - 20, 20)
 
         image = exit_image.convert_alpha()
         alpha_img = pygame.Surface(continue_rect.size, pygame.SRCALPHA)
-        if exit_rect.collidepoint(mouse_x, mouse_y):
+        if quit_rect.collidepoint(mouse_x, mouse_y):
             alpha_img.fill((255, 128, 128, 255))
             if mouse_buttons[0]:
                 alpha_img.fill((128, 64, 64, 255))
         else:
             alpha_img.fill((255, 128, 128, 255*0.5)) # type: ignore
         image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, exit_rect)
-
-        image = reset_image.convert_alpha()
-        alpha_img = pygame.Surface(menu_reset_rect.size, pygame.SRCALPHA)
-        if menu_reset_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 255, 255, 255))
-            if mouse_buttons[0]:
-                alpha_img.fill((128, 128, 128, 255))
-        else:
-            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, menu_reset_rect)
-
-        image = clear_image.convert_alpha()
-        alpha_img = pygame.Surface(clear_rect.size, pygame.SRCALPHA)
-        if clear_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 255, 255, 255))
-            if mouse_buttons[0]:
-                alpha_img.fill((128, 128, 128, 255))
-        else:
-            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, clear_rect)
+        #window.blit(image, exit_rect)
+        window.blit(image, quit_rect)
 
 
-    clock.tick(60)
+    clock.tick()
     dt = clock.get_time() / 1000
+    t+=dt
     if not paused:
         update_timer -= dt
         if update_timer < 0:
-            while update_timer < 0:
-                update_timer += step_speed
+            update_timer += step_speed
+            if update_timer < 0:
+                update_timer = 0
+                
             tick()
     else:
         if update_timer > 0:
@@ -842,14 +960,17 @@ while running:
         else:
             update_timer = 0
 
-    coord_text = fps_font.render(f"({world_mouse_tile_x}, {world_mouse_tile_y})", True, (255, 255, 255))
-    coord_rect = coord_text.get_rect()
-    coord_rect.topright = (WINDOW_WIDTH, 4)
-    window.blit(fps_font.render(f"FPS: {str(clock.get_fps())}", True, (255, 255, 255)), (0, 4))
-    window.blit(fps_font.render(f"Tick: {str(tick_number)}", True, (255, 255, 255)), (0, 13))
-    window.blit(coord_text, coord_rect)
-
-
+    if screen == "game":
+        if (world_mouse_tile_x, world_mouse_tile_y) in cell_map.keys():
+            disp = cell_map[world_mouse_tile_x, world_mouse_tile_y].__repr__()
+        else:
+            disp = str((world_mouse_tile_x, world_mouse_tile_y))
+        coord_text = fps_font.render(f"{disp}", True, (255, 255, 255))
+        coord_rect = coord_text.get_rect()
+        coord_rect.topright = (WINDOW_WIDTH, 4)
+        window.blit(fps_font.render(f"FPS: {str(clock.get_fps())}", True, (255, 255, 255)), (0, 4))
+        window.blit(fps_font.render(f"Tick: {str(tick_number)}", True, (255, 255, 255)), (0, 13))
+        window.blit(coord_text, coord_rect)
     # Update the display
     pygame.display.update()
 

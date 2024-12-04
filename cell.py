@@ -80,6 +80,7 @@ cell_names: dict[int|str, str] = {
     67: "semirotator_ccw",
     68: "semirotator_180",
     69: "toughslide",
+    70: "pararotator",
     208: "diodediverger"
 }
 
@@ -89,7 +90,7 @@ cell_cats: list[list[int]] = [
     [1, 4, 5, 6, 7, 8, 22, 41, 42, 52, 53, 54, 69], # Basic
     [2, 14, 28, 58, 59, 60, 61], # Movers
     [3, 23, 26, 27, 32, 33, 34, 35, 36, 37, 40, 45, 46, 55], # Generators
-    [9, 10, 11, 17, 18, 19, 30, 57, 62, 63, 64, 65, 66, 67, 68], # Rotators
+    [9, 10, 11, 17, 18, 19, 30, 57, 62, 63, 64, 65, 66, 67, 68, 70], # Rotators
     [21, 29, 15, 18, 19, 44, 50, 56], # Forcers
     [16, 31, 38, 39, 48, 49, 208], # Divergers
     [12, 13, 24, 44, 51], # Destroyers
@@ -786,6 +787,12 @@ class Cell(pygame.sprite.Sprite):
             case 69:
                 self.top = "wall"
                 self.bottom = "wall"
+            case 70:
+                self.right = "cwrotator"
+                self.left = "cwrotator"
+                self.bottom = "ccwrotator"
+                self.top = "ccwrotator"
+                self.chirality = [0, 2]
             case 208:
                 self.left = "diverger"
                 self.chirality = [0]
@@ -973,6 +980,7 @@ class Cell(pygame.sprite.Sprite):
                     pass
 
         return True
+        
 
     
     def test_pull(self, dir: int, move: bool, force: int = 0) -> bool:

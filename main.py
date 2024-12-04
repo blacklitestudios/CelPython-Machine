@@ -160,7 +160,7 @@ def tick():
 
     # Do redirectors
     for cell in sorted(get_all_cells(), key=forward):
-        cell.do_replicate(cell.dir)
+        cell.do_redirect()
     
     # Do impulsors
     for i in [0, 2, 3, 1]:

@@ -72,16 +72,24 @@ cell_names: dict[int|str, str] = {
     59: "auger",
     60: "corkscrew",
     61: "bringer",
+    62: "outdirector",
+    63: "indirector",
+    64: "cw-director",
+    65: "ccw-director",
+    66: "semirotator_cw",
+    67: "semirotator_ccw",
+    68: "semirotator_180",
+    69: "toughslide",
     208: "diodediverger"
 }
 
 cell_cats: list[list[int]] = [
     # Categories of cells in the UI
     [], # Tools
-    [1, 4, 5, 6, 7, 8, 22, 41, 42, 52, 53, 54], # Basic
+    [1, 4, 5, 6, 7, 8, 22, 41, 42, 52, 53, 54, 69], # Basic
     [2, 14, 28, 58, 59, 60, 61], # Movers
     [3, 23, 26, 27, 32, 33, 34, 35, 36, 37, 40, 45, 46, 55], # Generators
-    [9, 10, 11, 17, 18, 19, 30, 57], # Rotators
+    [9, 10, 11, 17, 18, 19, 30, 57, 62, 63, 64, 65, 66, 67, 68], # Rotators
     [21, 29, 15, 18, 19, 44, 50, 56], # Forcers
     [16, 31, 38, 39, 48, 49, 208], # Divergers
     [12, 13, 24, 44, 51], # Destroyers
@@ -459,8 +467,10 @@ class Cell(pygame.sprite.Sprite):
             for i in range(4):
                 dx, dy = get_deltas(i)
                 if (self.tile_x + dx, self.tile_y + dy) in cell_map.keys():
-                    if dir != (i+2)%4:
-                        del cell_map[self.tile_x + dx, self.tile_y + dy] 
+                    cell: Cell = cell_map[self.tile_x + dx, self.tile_y + dy]
+                    if cell.get_side_by_delta(dx, dy) not in ["wall", "trash"]:
+                        if dir != (i+2)%4:
+                            del cell_map[self.tile_x + dx, self.tile_y + dy] 
 
             
 
@@ -721,6 +731,7 @@ class Cell(pygame.sprite.Sprite):
                 self.chirality = [0]
             case 56:
                 self.mirrors = [(0, 4), (2, 6)]
+                self.chirality = [0, 1, 2, 3]
             case 57:
                 self.right = "cwrotator"
                 self.bottom = "cwrotator"
@@ -729,16 +740,52 @@ class Cell(pygame.sprite.Sprite):
                 self.chirality = [3]
             case 58:
                 self.drills = True
+                self.chirality = [0]
             case 59:
                 self.drills = True
                 self.pushes = True
+                self.chirality = [0]
             case 60:
                 self.drills = True
                 self.pushes = True
                 self.pulls = True
+                self.chirality = [0]
             case 61:
                 self.drills = True
                 self.pulls = True
+                self.chirality = [0]
+            case 62:
+                self.right = "outdirector"
+                self.bottom = "outdirector"
+                self.left = "outdirector"
+                self.top = "outdirector"
+            case 63:
+                self.right = "indirector"
+                self.bottom = "indirector"
+                self.left = "indirector"
+                self.top = "indirector"
+            case 64:
+                self.right = "cwdirector"
+                self.bottom = "cwdirector"
+                self.left = "cwdirector"
+                self.top = "cwdirector"
+            case 65:
+                self.right = "ccwdirector"
+                self.bottom = "ccwdirector"
+                self.left = "ccwdirector"
+                self.top = "ccwdirector"
+            case 66:
+                self.left = "cwrotator"
+                self.right = "cwrotator"
+            case 67:
+                self.left = "ccwrotator"
+                self.right = "ccwrotator"
+            case 68:
+                self.left = "180rotator"
+                self.right = "180rotator"
+            case 69:
+                self.top = "wall"
+                self.bottom = "wall"
             case 208:
                 self.left = "diverger"
                 self.chirality = [0]
@@ -1110,10 +1157,10 @@ class Cell(pygame.sprite.Sprite):
         from main import cell_map
 
         if (self.tile_x + dx1, self.tile_y + dy1) in cell_map.keys():
-            if cell_map[(self.tile_x + dx1, self.tile_y + dy1)].get_side_by_delta(dy1, dx1) in ["wall", "trash", "enemy"] or cell_map[(self.tile_x + dx1, self.tile_y + dy1)].swaps:
+            if cell_map[(self.tile_x + dx1, self.tile_y + dy1)].get_side_by_delta(dx1, dy1) in ["wall", "trash", "enemy"] or cell_map[(self.tile_x + dx1, self.tile_y + dy1)].swaps:
                 return False
         if (self.tile_x + dx2, self.tile_y + dy2) in cell_map.keys():
-            if cell_map[(self.tile_x + dx2, self.tile_y + dy2)].get_side_by_delta(dy2, dx2) in ["wall", "trash", "enemy"] or cell_map[(self.tile_x + dx2, self.tile_y + dy2)].swaps:
+            if cell_map[(self.tile_x + dx2, self.tile_y + dy2)].get_side_by_delta(dx2, dy2) in ["wall", "trash", "enemy"] or cell_map[(self.tile_x + dx2, self.tile_y + dy2)].swaps:
                 return False
         
         swap_cells((self.tile_x + dx1, self.tile_y + dy1), (self.tile_x + dx2, self.tile_y + dy2))
@@ -1535,6 +1582,14 @@ class Cell(pygame.sprite.Sprite):
         for i in range(4):
             if self.get_side(i) == "redirector":
                 self.test_redirect(i, self.dir)
+            if self.get_side(i) == "outdirector":
+                self.test_redirect(i, i)
+            if self.get_side(i) == "indirector":
+                self.test_redirect(i, (i+2)%4)
+            if self.get_side(i) == "cwdirector":
+                self.test_redirect(i, (i+1)%4)
+            if self.get_side(i) == "ccwdirector":
+                self.test_redirect(i, (i+3)%4)
     
     def do_gear(self, dir):
         if self.frozen:

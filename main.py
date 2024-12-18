@@ -81,7 +81,7 @@ def forward(cell: Cell) -> int:
 def tick():
     '''Ticks the entire map.'''
     # Reset the suppression values
-    global tick_number
+    global tick_number, delete_map
     cell: Cell
     for cell in cell_map.values():
         cell.suppressed = False
@@ -98,14 +98,8 @@ def tick():
 
     i: int
 
-    delete_map.clear()
 
-    all_cells = get_all_cells()
-    temp = list(all_cells)
-    temp.sort(key=forward)
-
-    temp2 = temp[:]
-    temp2.sort(key=reverse)
+    delete_map = []
 
     # Do freezers (subtick 9)
     for i in range(4):
@@ -178,16 +172,21 @@ def tick():
             cell.do_repulse(i)
 
     # Do movers
-    for i in range(4):
+    for i in [0, 2, 3, 1]:
         for cell in sorted(get_all_cells(), key=forward):
             cell.do_drill(i)
-    for i in range(4):
+    for i in [0, 2, 3, 1]:
         for cell in sorted(get_all_cells(), key=forward):
             cell.do_pull(i)
-
-    for i in range(4):
+    for i in [0, 2, 3, 1]:
+        for cell in sorted(get_all_cells(), key=forward):
+            cell.do_grab(i)
+    for i in [0, 2, 3, 1]:
         for cell in sorted(get_all_cells(), key=reverse):
             cell.do_push(i)
+    for i in [0, 2, 3, 1]:
+        for cell in sorted(get_all_cells(), key=reverse):
+            cell.do_nudge(i)
 
 
     # Gates
@@ -641,7 +640,7 @@ while running:
                     i = 0
                     for tile in list(cell_map.values()):
                         if (tile.tile_x, tile.tile_y) == (world_mouse_tile_x, world_mouse_tile_y):
-                            print()#, cell.increment_with_divergers(tile.tile_x, tile.tile_y, tile.dir)
+                            print(tile.suppressed)
                 
                 if event.dict["key"] == pygame.K_r:
                     if keys[pygame.K_LCTRL] or keys[pygame.K_LMETA]:
@@ -947,8 +946,11 @@ while running:
     dt = clock.get_time() / 1000
     t+=dt
     if not paused:
-        update_timer -= dt
-        if update_timer < 0:
+        if dt > step_speed:
+            update_timer = 0
+        else:
+            update_timer -= dt
+        if update_timer <= 0:
             update_timer += step_speed
             if update_timer < 0:
                 update_timer = 0

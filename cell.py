@@ -102,6 +102,13 @@ cell_names: dict[int|str, str] = {
     89: "semiflipper_h",
     90: "semiflipper_v",
     91: "displacer",
+    92: "bidisplacer",
+    93: "valvediverger_cw",
+    94: "valvediverger_ccw",
+    95: "valvedisplacer_cw",
+    96: "valvedisplacer_ccw",
+    97: "cwforker",
+    98: "ccwforker",
     114: "nudger",
     208: "diodediverger",
 }
@@ -114,7 +121,7 @@ cell_cats: list[list[int | str]] = [
     [3, 23, 26, 27, 32, 33, 34, 35, 36, 37, 40, 45, 46, 55], # Generators
     [9, 10, 11, 17, 18, 19, 30, 57, 62, 63, 64, 65, 66, 67, 68, 70, 89, 90], # Rotators
     [21, 29, 15, 18, 19, 44, 50, 56, 80, 81, 82], # Forcers
-    [16, 31, 38, 39, 48, 49, 79, 83, 84, 85, 86, 87, 88, 91, 208], # Divergers
+    [16, 31, 38, 39, 48, 49, 79, 83, 84, 85, 86, 87, 88, 91, 92, 93, 94, 95, 96, 97, 98, 208], # Divergers
     [12, 13, 24, 44, 51], # Destroyers
     [], # Transformers
     [20, 25, 43, 47, "placeable"] # Misc
@@ -925,19 +932,29 @@ class Cell(pygame.sprite.Sprite):
                 self.left = "diverger"
                 self.bottom = "cwdiverger"
             case 84:
+                self.left = "diverger"
+                self.right = "diverger"
                 self.top = "cwdiverger"
                 self.bottom = "cwdiverger"
             case 85:
+                self.left = "diverger"
+                self.right = "diverger"
                 self.bottom = "ccwdiverger"
                 self.top = "ccwdiverger"
             case 86: 
+                self.left = "displacer"
+                self.right = "displacer"
                 self.top = "ccwdisplacer"
                 self.left = "displacer"
                 self.bottom = "cwdisplacer"
             case 87:
+                self.left = "displacer"
+                self.right = "displacer"
                 self.top = "cwdisplacer"
                 self.bottom = "cwdisplacer"
             case 88:
+                self.left = "displacer"
+                self.right = "displacer"
                 self.bottom = "ccwdisplacer"
                 self.top = "ccwdisplacer"
             case 89:

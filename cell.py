@@ -89,19 +89,32 @@ cell_names: dict[int|str, str] = {
     76: "borer",
     77: "carrier",
     78: "omnipower",
+    79: "ice",
+    80: "termirror",
+    81: "grapulsor_cw",
+    82: "grapulsor_ccw",
+    83: "bivalvediverger",
+    84: "paravalvediverger_cw",
+    85: "paravalvediverger_ccw",
+    86: "bivalvedisplacer",
+    87: "paravalvedisplacer_cw",
+    88: "paravalvedisplacer_ccw",
+    89: "semiflipper_h",
+    90: "semiflipper_v",
+    91: "displacer",
     114: "nudger",
     208: "diodediverger",
 }
 
-cell_cats: list[list[int]] = [
+cell_cats: list[list[int | str]] = [
     # Categories of cells in the UI
     [], # Tools
     [1, 4, 5, 6, 7, 8, 22, 41, 42, 52, 53, 54, 69], # Basic
     [2, 14, 28, 58, 59, 60, 61, 71, 72, 73, 74, 75, 76, 77, 78, 114], # Movers
     [3, 23, 26, 27, 32, 33, 34, 35, 36, 37, 40, 45, 46, 55], # Generators
-    [9, 10, 11, 17, 18, 19, 30, 57, 62, 63, 64, 65, 66, 67, 68, 70], # Rotators
-    [21, 29, 15, 18, 19, 44, 50, 56], # Forcers
-    [16, 31, 38, 39, 48, 49, 208], # Divergers
+    [9, 10, 11, 17, 18, 19, 30, 57, 62, 63, 64, 65, 66, 67, 68, 70, 89, 90], # Rotators
+    [21, 29, 15, 18, 19, 44, 50, 56, 80, 81, 82], # Forcers
+    [16, 31, 38, 39, 48, 49, 79, 83, 84, 85, 86, 87, 88, 91, 208], # Divergers
     [12, 13, 24, 44, 51], # Destroyers
     [], # Transformers
     [20, 25, 43, 47, "placeable"] # Misc
@@ -122,7 +135,7 @@ def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
+        base_path = sys._MEIPASS # type: ignore
     except Exception:
         base_path = os.path.abspath(".")
 
@@ -238,7 +251,7 @@ def swap_cells(a: tuple[int, int], b: tuple[int, int]):
     else: # If b is not in the cell map,
         del main.cell_map[a] # Delete the cell at a
    
-def increment_with_divergers(x, y, dir: int, force_type = 0) -> tuple[int, int, int, tuple[int, int], int]:
+def increment_with_divergers(x, y, dir: int, force_type = 0, displace=False) -> tuple[int, int, int, tuple[int, int], int]:
     dir %= 4
     from main import cell_map # Import the cell map
     dx: int # Initialize the delta x
@@ -247,6 +260,7 @@ def increment_with_divergers(x, y, dir: int, force_type = 0) -> tuple[int, int, 
     current_x: int = x #+ dx # Set the current x to x plus dx
     current_y: int = y #+ dy # Set the current y to y plus dy
     current_dir: int = dir # Set the current direction to dir
+    stop_flag: bool = False
     
     if (current_x, current_y) in cell_map.keys(): # If the current x and y are in the cell map,
         next_cell: Cell = cell_map[(current_x, current_y)] # Set the next cell to the cell at the current x and y
@@ -254,33 +268,78 @@ def increment_with_divergers(x, y, dir: int, force_type = 0) -> tuple[int, int, 
         next_cell: Cell = Cell(current_x, current_y, 0, dir) # Set the next cell to a new cell at the current x and y with the id 0 and direction dir
     while True: # Loop forever
         dx, dy = get_deltas(current_dir) # Get the delta values of the current direction
-        current_x += dx # Increment the current x by dx
-        current_y += dy # Increment the current y by dy
+        cwdx, cwdy = get_deltas(current_dir+1)
+        ccwdx, ccwdy = get_deltas(current_dir - 1)
+        if not stop_flag:
+            current_x += dx # Increment the current x by dx
+            current_y += dy # Increment the current y by dy
+
+        stop_flag = False
+
         if (current_x, current_y) in cell_map.keys(): # If the current x and y are in the cell map,
             next_cell = cell_map[(current_x, current_y)] # Set the next cell to the cell at the current x and y
         else: # If the current x and y are not in the cell map,
-            break # Break the loop
+            if (current_x+cwdx, current_y+cwdy) in cell_map.keys():
+                if cell_map[current_x+cwdx, current_y+cwdy].get_side(current_dir-1) in ["ice"]:
+                    continue
+                else:
+                    break
+            elif (current_x+ccwdx, current_y+ccwdy) in cell_map.keys():
+                if cell_map[current_x+ccwdx, current_y+ccwdy].get_side(current_dir+1) in ["ice"]:
+                    continue
+                else:
+                    break
+            else:
+                break
+        
+        
         
         match force_type: # Match the force type
-            
+
             case 2: # Pull force
+
                 if next_cell.get_side((current_dir-1)) in ["cwdiverger", "forker", "triforker", "cwforker"]: # If the next cell is a CW diverger, forker, triforker, or CW forker,
                     current_dir = (current_dir-1) # Rotate CCW
                 elif next_cell.get_side((current_dir+1)) in ["ccwdiverger", "forker", "triforker", "ccwforker"]: # If the next cell is a CCW diverger, forker, triforker, or CCW forker,
                     current_dir = (current_dir+1) # Rotate CW
                 elif next_cell.get_side((current_dir)) in ["diverger", "triforker", "cwforker", "ccwforker"]: # If the next cell is a straight diverger, triforker, CW forker, or CCW forker,
                     pass # Do nothing
+
                 else: # If the next cell is not a diverger, triforker, CW forker, or CCW forker,
                     break # Break the loop
             case _: # Push force
+                #print(cell_map[current_x+cwdx, current_y+cwdy])
                 if next_cell.get_side((current_dir+2)) == "cwdiverger": # If the next cell is a CW diverger,
                     current_dir = (current_dir+1) # Rotate CW
+                    continue
                 elif next_cell.get_side((current_dir+2)) == "ccwdiverger": # If the next cell is a CCW diverger,
                     current_dir = (current_dir-1) # Rotate CCW
+                    continue
                 elif next_cell.get_side((current_dir+2)) == "diverger": # If the next cell is a straight diverger,
-                    pass # Do nothing
-                else: # If the next cell is not a diverger,
-                    break # Break the loop
+                    continue # Do nothing
+                if not displace:
+                    if next_cell.get_side((current_dir+2)) == "cwdisplacer": # If the next cell is a CW diverger,
+                        current_dir = (current_dir+1) # Rotate CW
+                        continue
+                    elif next_cell.get_side((current_dir+2)) == "ccwdisplacer": # If the next cell is a CCW diverger,
+                        current_dir = (current_dir-1) # Rotate CCW
+                        continue
+                else:
+                    if next_cell.get_side((current_dir+2)) == "cwdisplacer": # If the next cell is a CW diverger,
+                        current_x += cwdx
+                        current_y += cwdy # Rotate CW
+                        stop_flag = True
+                        continue
+                    elif next_cell.get_side((current_dir+2)) == "ccwdisplacer": # If the next cell is a CCW diverger,
+                        print("eeee")
+                        current_x += ccwdx
+                        current_y += ccwdy # Rotate CW
+                        stop_flag = True
+                        continue
+
+                
+            
+                break # Break the loop
 
 
 
@@ -297,7 +356,7 @@ def rot_center(image: pygame.Surface, rect: pygame.Rect, angle):
 
 class Cell(pygame.sprite.Sprite):
     '''A class to represent a cell.'''
-    def __init__(self, x: int, y: int, id: int | str, dir: int):
+    def __init__(self, x: int, y: int, id: int | str, dir: int) -> None:
         '''Initialize the cell.'''
         # Initialize the sprite
         super().__init__()
@@ -343,9 +402,9 @@ class Cell(pygame.sprite.Sprite):
     def update(self):
         '''Update the cell, once per frame'''
         from main import cam_x, cam_y, TILE_SIZE, cell_map, update_timer, step_speed
-        self.rect.centerx = lerp(int(self.tile_x*TILE_SIZE-cam_x), int(self.old_x*TILE_SIZE-cam_x), update_timer/step_speed)+TILE_SIZE/2
-        self.rect.centery = lerp(int(self.tile_y*TILE_SIZE-cam_y), int(self.old_y*TILE_SIZE-cam_y), update_timer/step_speed)+TILE_SIZE/2
-        self.actual_dir = lerp(self.dir*-90, (self.dir-self.delta_dir)*-90, update_timer/step_speed)
+        self.rect.centerx = int(lerp(int(self.tile_x*TILE_SIZE-cam_x), int(self.old_x*TILE_SIZE-cam_x), update_timer/step_speed)+TILE_SIZE/2)
+        self.rect.centery = int(lerp(int(self.tile_y*TILE_SIZE-cam_y), int(self.old_y*TILE_SIZE-cam_y), update_timer/step_speed)+TILE_SIZE/2)
+        self.actual_dir = int(lerp(self.dir*-90, (self.dir-self.delta_dir)*-90, update_timer/step_speed))
 
     def draw(self):
         '''Draw the cell on the screen'''
@@ -388,7 +447,7 @@ class Cell(pygame.sprite.Sprite):
         self.do_repulse(dir)
         return True
     
-    def on_force(self, dir, cell: Cell, suppress: bool = True, force_type = 0):
+    def on_force(self, dir, origin: Cell, suppress: bool = True, force_type = 0):
         from main import cell_map
         dir %= 4
         if self.id in [32, 33, 34, 35, 36, 37]:
@@ -404,10 +463,10 @@ class Cell(pygame.sprite.Sprite):
                         self.eat_top = True
 
         if self.get_side((dir+2)) == "fungal":
-            cell.set_id(47)
+            origin.set_id(47)
 
         if self.get_side((dir+2)) in ["cwforker", "ccwforker", "triforker"]:
-            new_cell_3: Cell = cell.copy()
+            new_cell_3: Cell = origin.copy()
             temp = increment_with_divergers(self.tile_x, self.tile_y, dir, 0)
             dx3, dy3 = temp[3]
             ddir = temp[2]
@@ -431,7 +490,7 @@ class Cell(pygame.sprite.Sprite):
         if self.get_side((dir+2)) in ["forker", "cwforker", "triforker"]:
 
             # Fork CW
-            new_cell_1: Cell = cell.copy()
+            new_cell_1: Cell = origin.copy()
             temp = increment_with_divergers(self.tile_x, self.tile_y, (dir-1), 0)
             dx1, dy1 = temp[3]
             ddir = temp[2]
@@ -454,7 +513,7 @@ class Cell(pygame.sprite.Sprite):
 
             if self.get_side((dir+2)) in ["forker", "ccwforker", "triforker"]:
                 # Fork CCW
-                new_cell_2: Cell = cell.copy()
+                new_cell_2: Cell = origin.copy()
                 temp = increment_with_divergers(self.tile_x, self.tile_y, (dir+1), 0)
                 dx2, dy2 = temp[3]
                 ddir = temp[2]
@@ -480,14 +539,14 @@ class Cell(pygame.sprite.Sprite):
             for i in range(4):
                 dx, dy = get_deltas(i)
                 if (self.tile_x + dx, self.tile_y + dy) in cell_map.keys():
-                    cell: Cell = cell_map[self.tile_x + dx, self.tile_y + dy]
-                    if cell.get_side_by_delta(dx, dy) not in ["wall", "trash"]:
+                    temp_cell: Cell = cell_map[self.tile_x + dx, self.tile_y + dy]
+                    if temp_cell.get_side_by_delta(dx, dy) not in ["wall", "trash"]:
                         if dir != (i+2)%4:
                             del cell_map[self.tile_x + dx, self.tile_y + dy] 
 
             
 
-    def set_id(self, id: int):
+    def set_id(self, id: int | str) -> None:
         '''Setter to set the id, while changing the image'''
         self.id = id
         self.image = cell_images[self.id]
@@ -844,6 +903,53 @@ class Cell(pygame.sprite.Sprite):
                 self.drills = True
                 self.pulls = True
                 self.pushes = True
+            case 79:
+                self.left = "ice"
+                self.top = "ice"
+                self.right = "ice"
+                self.bottom = "ice"
+            case 80:
+                self.mirrors = [(0, 4), (1, 5), (2, 6), (3, 7)]
+            case 81:
+                self.top = "cwgrapulse"
+                self.right = "cwgrapulse"
+                self.bottom = "cwgrapulse"
+                self.left = "cwgrapulse"
+            case 82: 
+                self.top = "ccwgrapulse"
+                self.right = "ccwgrapulse"
+                self.bottom = "ccwgrapulse"
+                self.left = "ccwgrapulse"
+            case 83: 
+                self.top = "ccwdiverger"
+                self.left = "diverger"
+                self.bottom = "cwdiverger"
+            case 84:
+                self.top = "cwdiverger"
+                self.bottom = "cwdiverger"
+            case 85:
+                self.bottom = "ccwdiverger"
+                self.top = "ccwdiverger"
+            case 86: 
+                self.top = "ccwdisplacer"
+                self.left = "displacer"
+                self.bottom = "cwdisplacer"
+            case 87:
+                self.top = "cwdisplacer"
+                self.bottom = "cwdisplacer"
+            case 88:
+                self.bottom = "ccwdisplacer"
+                self.top = "ccwdisplacer"
+            case 89:
+                self.left = "flipper"
+                self.right = "flipper"
+            case 90:
+                self.top = "flipper"
+                self.right = "flipper"
+
+            case 91:
+                self.bottom = "cwdisplacer"
+                self.right = "ccwdisplacer"
             case 114:
                 self.nudges = True
             case 208:
@@ -872,7 +978,7 @@ class Cell(pygame.sprite.Sprite):
         return True
 
 
-    def push(self, dir: int, move: bool, hp: int = 1, force: int = 1, speed: int = 1, test: bool = False) -> bool | int:
+    def push(self, dir: int, move: bool, hp: int = 1, force: int = 0, speed: int = 1, test: bool = False, active=True) -> bool | int:
         '''Tests a push, and returns False if failed'''
         from main import cell_map, delete_map
         if self not in cell_map.values():
@@ -894,7 +1000,9 @@ class Cell(pygame.sprite.Sprite):
             new_dir: int = 0
 
             #if move:
-            new_x, new_y, new_dir, _, b = increment_with_divergers(self.tile_x, self.tile_y, dir)
+            new_x, new_y, new_dir, _, b = increment_with_divergers(self.tile_x, self.tile_y, dir, displace=True)
+
+            fx, fy, fdir, _, ppp = increment_with_divergers(self.tile_x, self.tile_y, dir)
 
             if move:
                 if (new_x, new_y) in cell_map.keys():
@@ -903,17 +1011,20 @@ class Cell(pygame.sprite.Sprite):
                         if not self.mexican_standoff(cell):
                             return False
 
-            cell = cell_map[affected_cells[0][:2]]
-            if cell.get_side((dir+2)) in ["wall", "undirectional", "forker", "triforker", "cwforker", "ccwforker"]:
-                print("flase")
-                return False
-            con_dir = affected_cells[0][4]
-            x = affected_cells[0][0]
-            y = affected_cells[0][1]
+            print(self.tile_x, self.tile_y, fx, fy)
+            if (fx, fy) in cell_map.keys():
+                cell = cell_map[fx, fy]
+                if cell.get_side((dir+2)) in ["wall", "undirectional", "forker", "triforker", "cwforker", "ccwforker"]:
+                    print("flase")
+                    return False
+            con_dir = ppp
+            x = fx
+            y = fy
+            cell = self
             
-            if (cell.pushes, cell.dir) == (True, con_dir):
+            if (cell.pushes, cell.dir) == (True, dir):
                 bias += 1
-            if (cell.pushes, cell.dir) == (True, (con_dir+2)) and not cell.frozen:
+            if (cell.pushes, cell.dir) == (True, (dir+2)%4) and not cell.frozen:
                 bias -= 1
             if cell.get_side((dir+2)) == "repulse":
                 bias -= 1
@@ -995,10 +1106,10 @@ class Cell(pygame.sprite.Sprite):
                 pass
             if move:
                 del cell_map[(self.tile_x, self.tile_y)]
-            if (new_x, new_y) in cell_map.keys():
+            if (fx, fy) in cell_map.keys():
                 #if (new_x, new_y) != (self.tile_x, self.tile_y):
                 try:
-                    if not cell_map[new_x, new_y].push(dir+new_dir, True, force=bias, speed=speed, test=test):
+                    if not cell_map[fx, fy].push(dir+fdir, True, force=bias, speed=speed, test=test, active=False):
                         if test:
                             return False
                 except RecursionError:
@@ -1471,8 +1582,16 @@ class Cell(pygame.sprite.Sprite):
     def do_impulse(self, dir: int):
         if self.frozen:
             return
-        if self.id == 29:
+        if self.get_side(dir) == "impulse":
             self.pull(dir, False)
+
+    def do_grapulse(self, dir: int):
+        if self.frozen:
+            return
+        if self.get_side(dir) == "cwgrapulse":
+            self.ccw_grab(dir, False)
+        elif self.get_side(dir) == "ccwgrapulse":
+            self.cw_grab(dir, False)
 
     def do_pull(self, dir):
         if self.frozen or self.suppressed:
@@ -1640,13 +1759,12 @@ class Cell(pygame.sprite.Sprite):
     def do_flip(self):
         if self.frozen:
             return
-        if self.id == 30:
-            if self.dir in [0, 2]:
-                for i in range(4):
-                    self.test_flip(i, 0)
-            if self.dir in [1, 3]:
-                for i in range(4):
-                    self.test_flip(i, 2)
+        for i in range(4):
+            if self.get_side(i) == "flipper":
+                if self.dir in [0, 2]:
+                        self.test_flip(i, 0)
+                if self.dir in [1, 3]:
+                        self.test_flip(i, 2)
 
     def do_mirror(self, dir1, dir2):
         dir_to_delta: list = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
@@ -1732,8 +1850,9 @@ class Cell(pygame.sprite.Sprite):
             return self.get_side(0.5)
         
     def cw_grab(self, dir: int, move: bool, hp: int = 1, force: int = 1, speed: int = 1) -> bool | int:
-        if not self.nudge(dir, False):
-            return
+        if move:
+            if not self.nudge(dir, False):
+                return
         from main import cell_map, delete_map
         suicide_flag = False
         trash_flag = False
@@ -1832,9 +1951,10 @@ class Cell(pygame.sprite.Sprite):
         return True
     
     def ccw_grab(self, dir: int, move: bool, hp: int = 1, force: int = 1, speed: int = 1) -> bool | int:
-        from main import cell_map, delete_map
-        if not self.nudge(dir, False):
-            return
+        from main import cell_map, delete_map 
+        if move:
+            if not self.nudge(dir, False):
+                return
         suicide_flag = False
         trash_flag = False
         fail = False
@@ -1958,13 +2078,13 @@ class Cell(pygame.sprite.Sprite):
         if incr_ccw[:2] in cell_map.keys():
             cell_map[incr_ccw[:2]].ccw_grab(dir, True)
 
-    def nudge(self, dir: int, move: bool, force: int = 0, hp: int = 1):
+    def nudge(self, dir: int, move: bool, force: int = 0, hp: int = 1, active=True):
         from main import cell_map, delete_map
         suicide_flag = False
         trash_flag = False
         fail = False
         #incr = increment_with_divergers(self.tile_x, self.tile_y, (dir+3)%4)
-        new_x, new_y, new_dir, a, b = increment_with_divergers(self.tile_x, self.tile_y, dir)
+        new_x, new_y, new_dir, a, b = increment_with_divergers(self.tile_x, self.tile_y, dir, displace=True)
         bias = force
         print("n")
         if move:
@@ -1989,6 +2109,7 @@ class Cell(pygame.sprite.Sprite):
         if not suicide_flag:               
             if (new_x, new_y) in cell_map.keys():
                 cell_map[(self.tile_x, self.tile_y)] = self
+                print("fial")
                 return False
 
 

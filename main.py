@@ -2,16 +2,18 @@ import pygame, sys
 import math
 from cell import Cell, cell_images, cell_cats, rot_center
 import cell
+from sometypes import void
 
 from button import MenuSubItem
 
 # Initialize pygame
 pygame.init()
 
-def place_cell(x: int, y: int, id: int | str, dir: int):
+
+def place_cell(x: int, y: int, id: int | str, dir: int) -> void:
     '''Place a cell on the cell map'''
     if not (x >= 0 and x < GRID_WIDTH and y >= 0 and y < GRID_HEIGHT):
-        return
+        return void()
     if (x, y) in cell_map.keys():
         # Target cell is not empty
         if id == 0:
@@ -28,6 +30,8 @@ def place_cell(x: int, y: int, id: int | str, dir: int):
     if tick_number == 0:
         # Reset the initial state only if the current state is initial
         set_initial()
+
+    return void()
 
 def get_cell(x: int, y: int) -> Cell:
     '''Get a cell from the map given the position'''
@@ -48,7 +52,7 @@ def get_all_cells() -> list[Cell]:
 
     return result
 
-def reverse(cell: Cell) -> int:
+def reverse(cell: Cell) -> int | float:
     if cell.tile_x < 0 or cell.tile_y < 0 or cell.tile_x >= GRID_WIDTH or cell.tile_y >= GRID_HEIGHT:
         return float("-infinity")
     match cell.dir:
@@ -115,6 +119,12 @@ def tick():
         cell.do_mirror(0, 4)
 
     for cell in sorted(get_all_cells(), key=forward):
+        cell.do_mirror(1, 5)
+
+    for cell in sorted(get_all_cells(), key=forward):
+        cell.do_mirror(3, 7)
+
+    for cell in sorted(get_all_cells(), key=forward):
         cell.do_mirror(2, 6)
 
     # Do intakers subticks 70 to 73
@@ -165,6 +175,10 @@ def tick():
     for i in [0, 2, 3, 1]:
         for cell in sorted(get_all_cells(), key=forward):
             cell.do_super_repulse(i)
+
+    for i in [0, 2, 3, 1]:
+        for cell in sorted(get_all_cells(), key=forward):
+            cell.do_grapulse(i)
 
     # Do repulsors
     for i in [0, 2, 3, 1]:
@@ -409,7 +423,7 @@ destroyers_icon_rect.midleft = (7+7*54, WINDOW_HEIGHT - 27)
 misc_icon_rect: pygame.Rect = misc_icon_image.get_rect()
 misc_icon_rect.midleft = (7+9*54, WINDOW_HEIGHT - 27)
 
-toolbar_icon_rects: list[pygame.Rect | None] = [tools_icon_rect, basic_icon_rect, movers_icon_rect, generators_icon_rect, rotators_icon_rect, forcers_icon_rect, divergers_icon_rect, destroyers_icon_rect, None, misc_icon_rect]
+toolbar_icon_rects: list[pygame.Rect] = [tools_icon_rect, basic_icon_rect, movers_icon_rect, generators_icon_rect, rotators_icon_rect, forcers_icon_rect, divergers_icon_rect, destroyers_icon_rect, None, misc_icon_rect]
 toolbar_subicons: list[MenuSubItem] = []
 
 continue_rect: pygame.Rect = play_image.get_rect()

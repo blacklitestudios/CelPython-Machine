@@ -2,15 +2,15 @@ import pygame, sys
 import math
 from cell import Cell, cell_images, cell_cats, rot_center
 import cell
-from sometypes import void
+from sometypes import void, Void
 
-from button import MenuSubItem
+from button import MenuSubItem, MenuSubCategory
 
 # Initialize pygame
 pygame.init()
 
 
-def place_cell(x: int, y: int, id: int | str, dir: int) -> void:
+def place_cell(x: int, y: int, id: int | str, dir: int) -> Void:
     '''Place a cell on the cell map'''
     if not (x >= 0 and x < GRID_WIDTH and y >= 0 and y < GRID_HEIGHT):
         return void()
@@ -31,7 +31,7 @@ def place_cell(x: int, y: int, id: int | str, dir: int) -> void:
         # Reset the initial state only if the current state is initial
         set_initial()
 
-    return void()
+    return void
 
 def get_cell(x: int, y: int) -> Cell:
     '''Get a cell from the map given the position'''
@@ -453,6 +453,13 @@ quit_rect.topright = (WINDOW_WIDTH - 20, 20)
 cell_id: int | str
 for cell_id in cell_images.keys():
     toolbar_subicons.append(MenuSubItem(cell_id))
+
+toolbar_subcategories = {}
+for cell_id in cell_images.keys():
+    toolbar_subcategories[cell_id] = (MenuSubCategory(cell_id))
+
+
+
     
 
 # Initialize cell maps
@@ -473,6 +480,7 @@ initial_below: dict[tuple[int, int], Cell] = {}
 
 keys: list[bool]
 mouse_buttons: tuple[bool, bool, bool] = (False, False, False)
+current_submenu = -1
 
 # Create border tiles
 
@@ -561,42 +569,49 @@ while running:
                         current_menu = -1
                     else:
                         current_menu = 1
+                    current_submenu = -1
                 if movers_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 2:
                         current_menu = -1
                     else:
                         current_menu = 2
+                    current_submenu = -1
                 if generators_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 3:
                         current_menu = -1
                     else:
                         current_menu = 3
+                    current_submenu = -1
                 if rotators_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 4:
                         current_menu = -1
                     else:
                         current_menu = 4
+                    current_submenu = -1
                 if forcers_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 5:
                         current_menu = -1
                     else:
                         current_menu = 5
+                    current_submenu = -1
                 if divergers_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 6:
                         current_menu = -1
                     else:
                         current_menu = 6
+                    current_submenu = -1
                 if destroyers_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 7:
                         current_menu = -1
                     else:
                         current_menu = 7
-
+                    current_submenu = -1
                 if misc_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 9:
                         current_menu = -1
                     else:
                         current_menu = 9
+                    current_submenu = -1
                 
                 if play_rect.collidepoint(mouse_x, mouse_y):
                     paused = not paused
@@ -633,7 +648,11 @@ while running:
                     brush_dir = picked_cell.dir
 
                 for button in toolbar_subicons:
-                    button.update(mouse_buttons, mouse_x, mouse_y, brush, current_menu)
+                    button.update(mouse_buttons, mouse_x, mouse_y, brush, current_menu, current_submenu)
+                for button in toolbar_subcategories.values():
+                    button.handle_click(mouse_buttons, mouse_x, mouse_y, brush, current_menu)
+
+
 
                     
             
@@ -711,6 +730,8 @@ while running:
         # Check for a press suppression
         button: MenuSubItem
         for button in toolbar_subicons:
+            all_buttons.append(button.update(mouse_buttons, mouse_x, mouse_y, brush, current_menu, current_submenu))
+        for button in toolbar_subcategories.values():
             all_buttons.append(button.update(mouse_buttons, mouse_x, mouse_y, brush, current_menu))
 
         if True in all_buttons:
@@ -778,6 +799,9 @@ while running:
         window.blit(pygame.transform.rotate(misc_icon_image, -90*brush_dir), misc_icon_rect)
 
         for button in toolbar_subicons:
+            button.draw(window)
+        for button in toolbar_subcategories.values():
+            button.update(mouse_buttons, mouse_x, mouse_y, brush, current_menu)
             button.draw(window)
         if paused:
             image = play_image.convert_alpha()

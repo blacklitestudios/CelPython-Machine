@@ -1,10 +1,10 @@
 import pygame, sys
 import math
-from cell import Cell, cell_images, cell_cats, rot_center
+from cell import Cell, cell_images, rot_center
 import cell
 from sometypes import void, Void
 
-from button import MenuSubItem, MenuSubCategory
+from button import MenuSubItem, MenuSubCategory, Button
 
 # Initialize pygame
 pygame.init()
@@ -13,7 +13,7 @@ pygame.init()
 def place_cell(x: int, y: int, id: int | str, dir: int) -> Void:
     '''Place a cell on the cell map'''
     if not (x >= 0 and x < GRID_WIDTH and y >= 0 and y < GRID_HEIGHT):
-        return void()
+        return void
     if (x, y) in cell_map.keys():
         # Target cell is not empty
         if id == 0:
@@ -342,6 +342,13 @@ tick_number: int = 0
 
 # Images 
 bg_image: pygame.Surface = pygame.image.load(resource_path("textures/bg.png"))
+bg_cache = {}
+def get_bg(size):
+    if size in bg_cache.keys():
+        return bg_cache[size]
+    img = pygame.transform.scale(bg_image, (size, size))
+    bg_cache[size] = img
+    return img
 tools_icon_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/eraser.png")), (40, 40))
 basic_icon_image: pygame.Surface = pygame.transform.scale(cell_images[4], (40, 40))
 movers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[2], (40, 40))
@@ -448,6 +455,9 @@ start_play_rect.midtop = (WINDOW_WIDTH//2, logo_rect.bottom + 20)
 
 quit_rect: pygame.Rect = exit_image.get_rect()
 quit_rect.topright = (WINDOW_WIDTH - 20, 20)
+
+zoomin_button: Button = Button("zoomin.png", 40)
+zoomin_button.rect.topleft = (70, 20)
 
 # Create submenu icons
 cell_id: int | str
@@ -758,7 +768,7 @@ while running:
             for j in range(GRID_HEIGHT):
                 if not (TILE_SIZE*i-cam_x+TILE_SIZE < 0 or TILE_SIZE*i-cam_x > WINDOW_WIDTH or TILE_SIZE*j-cam_y+TILE_SIZE < 0 or TILE_SIZE*j-cam_y > WINDOW_HEIGHT):
                     #if (i, j) not in cell_map.keys():
-                        window.blit(pygame.transform.scale(bg_image, (TILE_SIZE, TILE_SIZE)), (TILE_SIZE*i-cam_x, TILE_SIZE*j-cam_y))
+                        window.blit(get_bg(TILE_SIZE), (TILE_SIZE*i-cam_x, TILE_SIZE*j-cam_y))
 
 
         draw()
@@ -880,7 +890,8 @@ while running:
         menu_reset_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*1, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
         clear_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*2, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
         exit_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*6, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
-        
+        zoomin_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        zoomin_button.draw(window)
         if menu_on:
             window.blit(menu_bg, menu_bg_rect)
             window.blit(title_text, title_rect)

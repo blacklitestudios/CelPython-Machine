@@ -1,13 +1,12 @@
 import pygame
-from math import atan2, pi
+import math
 
 pygame.init()
 
-# Forward declaration
-class Cell: # type: ignore
+class Cell:
     pass
 
-cell_names: dict[int|str, str] = {
+cell_names = {
     # Names of cells based on their id
     "placeable": "placeable",
     0: "eraser", #
@@ -109,25 +108,15 @@ cell_names: dict[int|str, str] = {
     96: "valvedisplacer_ccw",
     97: "cwforker",
     98: "ccwforker",
+    99: "divider",
+    100: "tridivider",
+    101: "cwdivider",
+    102: "ccwdivider",
     114: "nudger",
     208: "diodediverger",
 }
 
-cell_cats: list[list[int | str]] = [
-    # Categories of cells in the UI
-    [], # Tools
-    [1, 4, 5, 6, 7, 8, 22, 41, 42, 52, 53, 54, 69], # Basic
-    [2, 14, 28, 58, 59, 60, 61, 71, 72, 73, 74, 75, 76, 77, 78, 114], # Movers
-    [3, 23, 26, 27, 32, 33, 34, 35, 36, 37, 40, 45, 46, 55], # Generators
-    [9, 10, 11, 17, 18, 19, 30, 57, 62, 63, 64, 65, 66, 67, 68, 70, 89, 90], # Rotators
-    [21, 29, 15, 18, 19, 44, 50, 56, 80, 81, 82], # Forcers
-    [16, 31, 38, 39, 48, 49, 79, 83, 84, 85, 86, 87, 88, 91, 92, 93, 94, 95, 96, 97, 98, 208], # Divergers
-    [12, 13, 24, 44, 51], # Destroyers
-    [], # Transformers
-    [20, 25, 43, 47, "placeable"] # Misc
-]
-
-cell_cats_new: list[list[int | str]] = [
+cell_cats_new = [
     # Categories of cells in the UI
     [], # Tools
     [[1, 41], # Walls
@@ -154,14 +143,14 @@ cell_cats_new: list[list[int | str]] = [
      [30, 89, 90] # Flippers
     ], # Rotators
 
-    [[21, 29, 15, 18, 19, 44, 50, 56, 80, 81, 82]], # Forcers
-    [[16, 31, 38, 39, 83, 84, 85, 86, 87, 88, 91, 92, 93, 94, 95, 96, 208], [48, 49, 97, 98], [79], ], # Divergers
-    [[12, 13, 24, 44, 51]], # Destroyers
+    [[21, 50], [29], [81, 82], [15, 56, 80], [18, 19], [44]], # Forcers
+    [[16, 31, 38, 39, 83, 84, 85, 86, 87, 88, 91, 92, 93, 94, 95, 96, 208], [48, 49, 97, 98, 99, 100, 101, 102], [79], ], # Divergers
+    [[12], [51], [13, 24], [44]], # Destroyers
     [], # Transformers
     [[20, 25, 43, 47, "placeable"]] # Misc
 ]
 
-flip_guide: list[list[int]] = [
+flip_guide = [
     # Guide for flipping cells
     [2, 0, 2, 0],
     [1, -1, 1, -1],
@@ -182,12 +171,12 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-cell_images_raw: list[tuple[int | str, pygame.Surface]] = [] # The raw images of the cells
-cell_id: int | str # Initialize cell_id
+cell_images_raw = [] # The raw images of the cells
+
 for cell_id in cell_names.keys(): # Iterate through the cell names
     cell_images_raw.append((cell_id, pygame.image.load(resource_path(f"textures/{cell_names[cell_id]}.png")))) # Load the image of the cell and add it to the list
 
-cell_images: dict[int | str, pygame.Surface] = dict(cell_images_raw); # Convert the list to a dictionary
+cell_images = dict(cell_images_raw); # Convert the list to a dictionary
 
 move_sound: pygame.mixer.Sound = pygame.mixer.Sound(resource_path("audio/move.ogg")) # Load the move sound
 rot_sound: pygame.mixer.Sound = pygame.mixer.Sound(resource_path("audio/rotate.ogg")) # Load the rotate sound
@@ -416,6 +405,7 @@ class Cell(pygame.sprite.Sprite):
         self.name = cell_names[self.id] # Set the name to the name of the cell
         self.dir: int = dir # Set the direction to dir
         self.actual_dir: int = dir*-90 # Set the actual direction to dir times -90
+        self.img_cache = {}
 
         self.chirality = [-1, 0, 1, 2] # Set the chirality to -1, 0, 1, 2
 
@@ -456,7 +446,7 @@ class Cell(pygame.sprite.Sprite):
         from main import window, TILE_SIZE, freeze_image, WINDOW_HEIGHT, WINDOW_WIDTH, protect_image, cell_map, delete_map
         if self not in cell_map.values() and self not in delete_map:
             return
-        img: pygame.Surface = pygame.transform.scale(self.image, (TILE_SIZE, TILE_SIZE))
+        img: pygame.Surface = self.loadscale(TILE_SIZE)
         true_img, true_rect = rot_center(img, self.rect, self.actual_dir)
         if true_rect.y+TILE_SIZE < 0:
             return
@@ -474,6 +464,13 @@ class Cell(pygame.sprite.Sprite):
 
         if self.protected:
             window.blit(pygame.transform.scale(protect_image, (TILE_SIZE, TILE_SIZE)), true_rect)
+
+    def loadscale(self, size):
+        if size in self.img_cache.keys():
+            return self.img_cache[size]
+        img: pygame.Surface = pygame.transform.scale(self.image, (size, size))
+        self.img_cache[size] = img
+        return img
 
     def tick(self, dir: int):
         '''Tick the cell, once per tick'''
@@ -550,8 +547,8 @@ class Cell(pygame.sprite.Sprite):
                 foo = increment_with_divergers(temp[0], temp[1], temp[4])
                 if (foo[0], foo[1]) in cell_map.keys():
                     cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_1)
-            elif "forker" in cell_map[self.tile_x+dx1, self.tile_y+dy1].get_side((dir+1+ddir)):
-                cell_map[self.tile_x+dx1, self.tile_y+dy1].on_force((dir+3+ddir)%4, new_cell_1, suppress=suppress, force_type=force_type)
+            elif "forker" in cell_map[self.tile_x+dx1, self.tile_y+dy1].get_side((dir+3+ddir)):
+                cell_map[self.tile_x+dx1, self.tile_y+dy1].on_force((dir+1+ddir)%4, new_cell_1, suppress=suppress, force_type=force_type)
                 del new_cell_1
             else:
                 cell_map[self.tile_x+dx1, self.tile_y+dy1].on_force((dir+1+ddir), new_cell_1)
@@ -574,11 +571,103 @@ class Cell(pygame.sprite.Sprite):
                 foo = increment_with_divergers(temp[0], temp[1], temp[4])
                 if (foo[0], foo[1]) in cell_map.keys():
                     cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_2)
-            elif "forker" in cell_map[self.tile_x+dx2, self.tile_y+dy2].get_side((dir+3+ddir)%4):
-                cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+1+ddir)%4, new_cell_2, suppress=suppress, force_type=force_type)
+            elif "forker" in cell_map[self.tile_x+dx2, self.tile_y+dy2].get_side((dir+1+ddir)%4):
+                cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+3+ddir)%4, new_cell_2, suppress=suppress, force_type=force_type)
                 del new_cell_2
             else:
-                cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+1+ddir)%4, new_cell_2)
+                cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+3+ddir)%4, new_cell_2)
+
+        if self.get_side((dir+2)) in ["cwforker", "ccwforker", "triforker"]:
+            new_cell_3: Cell = origin.copy()
+            temp = increment_with_divergers(self.tile_x, self.tile_y, dir, 0)
+            dx3, dy3 = temp[3]
+            ddir = temp[2]
+            new_cell_3.rot(ddir)
+            new_cell_3.tile_x = self.tile_x+dx3
+            new_cell_3.tile_y = self.tile_y+dy3
+            if force_type == 0:
+                self.push((dir), False, force=1)
+            if (self.tile_x+dx3, self.tile_y+dy3) not in cell_map.keys():
+                cell_map[self.tile_x+dx3, self.tile_y+dy3] = new_cell_3
+                new_cell_3.suppressed = suppress
+                foo = increment_with_divergers(temp[0], temp[1], temp[4])
+                if (foo[0], foo[1]) in cell_map.keys():
+                    cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_3)
+            elif "forker" in cell_map[self.tile_x+dx3, self.tile_y+dy3].get_side((dir+2+ddir)):
+                cell_map[self.tile_x+dx3, self.tile_y+dy3].on_force((dir+ddir), new_cell_3, suppress=suppress, force_type=force_type)
+                del new_cell_3
+            else:
+                cell_map[self.tile_x+dx3, self.tile_y+dy3].on_force((dir+ddir), new_cell_3, suppress=suppress)
+
+        if self.get_side((dir+2)) in ["cwdivider", "ccwdivider", "tridivider"]:
+            new_cell_3: Cell = origin.copy()
+            temp = increment_with_divergers(self.tile_x, self.tile_y, dir, 0)
+            dx3, dy3 = temp[3]
+            ddir = temp[2]
+            new_cell_3.rot(ddir)
+            new_cell_3.tile_x = self.tile_x+dx3
+            new_cell_3.tile_y = self.tile_y+dy3
+            if force_type == 0:
+                self.push((dir), False, force=1)
+            if (self.tile_x+dx3, self.tile_y+dy3) not in cell_map.keys():
+                cell_map[self.tile_x+dx3, self.tile_y+dy3] = new_cell_3
+                new_cell_3.suppressed = suppress
+                foo = increment_with_divergers(temp[0], temp[1], temp[4])
+                if (foo[0], foo[1]) in cell_map.keys():
+                    cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_3)
+            elif "divider" in cell_map[self.tile_x+dx3, self.tile_y+dy3].get_side((dir+2+ddir)):
+                cell_map[self.tile_x+dx3, self.tile_y+dy3].on_force((dir+ddir), new_cell_3, suppress=suppress, force_type=force_type)
+                del new_cell_3
+            else:
+                cell_map[self.tile_x+dx3, self.tile_y+dy3].on_force((dir+ddir), new_cell_3, suppress=suppress)
+
+        if self.get_side((dir+2)) in ["divider", "cwdivider", "tridivider"]:
+
+            # Fork CW
+            new_cell_1: Cell = origin.copy()
+            temp = increment_with_divergers(self.tile_x, self.tile_y, (dir+1), 0)
+            dx1, dy1 = temp[3]
+            ddir = temp[2]
+            new_cell_1.tile_x = self.tile_x+dx1
+            new_cell_1.tile_y = self.tile_y+dy1
+            #new_cell_1.rot(1+ddir)
+            if force_type == 0:
+                self.push((dir+1), False, force=1)
+            if (self.tile_x+dx1, self.tile_y+dy1) not in cell_map.keys():
+                cell_map[self.tile_x+dx1, self.tile_y+dy1] = new_cell_1
+                new_cell_1.suppressed = suppress
+                foo = increment_with_divergers(temp[0], temp[1], temp[4])
+                if (foo[0], foo[1]) in cell_map.keys():
+                    cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_1)
+            elif "divider" in cell_map[self.tile_x+dx1, self.tile_y+dy1].get_side((dir+3+ddir)):
+                cell_map[self.tile_x+dx1, self.tile_y+dy1].on_force((dir+1+ddir)%4, new_cell_1, suppress=suppress, force_type=force_type)
+                del new_cell_1
+            else:
+                cell_map[self.tile_x+dx1, self.tile_y+dy1].on_force((dir+1+ddir), new_cell_1)
+
+        if self.get_side((dir+2)) in ["divider", "ccwdivider", "tridivider"]:
+            # Fork CCW
+            new_cell_2: Cell = origin.copy()
+            temp = increment_with_divergers(self.tile_x, self.tile_y, (dir-1)%4, 0)
+            dx2, dy2 = temp[3]
+            ddir = temp[2]
+            new_cell_2.tile_x = self.tile_x+dx2
+            new_cell_2.tile_y = self.tile_y+dy2
+            #new_cell_2.rot(-1+ddir)
+            if force_type == 0:
+                self.push((dir-1)%4, False, force=1)
+            if (self.tile_x+dx2, self.tile_y+dy2) not in cell_map.keys():
+
+                cell_map[self.tile_x+dx2, self.tile_y+dy2] = new_cell_2
+                new_cell_2.suppressed = suppress
+                foo = increment_with_divergers(temp[0], temp[1], temp[4])
+                if (foo[0], foo[1]) in cell_map.keys():
+                    cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_2)
+            elif "divider" in cell_map[self.tile_x+dx2, self.tile_y+dy2].get_side((dir+1+ddir)%4):
+                cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+3+ddir)%4, new_cell_2, suppress=suppress, force_type=force_type)
+                del new_cell_2
+            else:
+                cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+3+ddir)%4, new_cell_2)
             
 
         if self.demolishes:
@@ -597,6 +686,7 @@ class Cell(pygame.sprite.Sprite):
         self.id = id
         self.image = cell_images[self.id]
         self.name = cell_names[self.id]
+        self.img_cache = {}
 
         # Wall: self explanatory
         # Undirectional: Like wall but can be affected by swap force and can be rotated
@@ -1027,6 +1117,14 @@ class Cell(pygame.sprite.Sprite):
                 self.left = "cwforker"
             case 98:
                 self.left = "ccwforker"
+            case 99:
+                self.left = "divider"
+            case 100:
+                self.left = "tridivider"
+            case 101:
+                self.left = "cwdivider"
+            case 102:
+                self.left = "ccwdivider"
             case 114:
                 self.nudges = True
             case 208:
@@ -1096,7 +1194,7 @@ class Cell(pygame.sprite.Sprite):
                 if cell.get_side((dir+2)) in ["wall", "undirectional"]:
                     print("flase")
                     return False
-                if cell.get_side((dir+2)) in ["forker", "triforker", "cwforker", "ccwforker", "trash"]:
+                if cell.get_side((dir+2)) in ["forker", "triforker", "cwforker", "ccwforker", "trash", "divider", "tridivider", "cwdivider", "ccwdivider"]:
                     trash_flag = True
             con_dir = ppp
             x = fx
@@ -1161,7 +1259,7 @@ class Cell(pygame.sprite.Sprite):
                             return False
                 except RecursionError:
                     return False
-
+                cell_map[(self.tile_x, self.tile_y)] = self
             if move and not test:
                 if not self.nudge(dir, not test):
                     return False
@@ -1886,12 +1984,12 @@ class Cell(pygame.sprite.Sprite):
             if dx < 0:
                 return self.get_side(2)
         
-        tangent = atan2(dy, dx)
-        if tangent < pi/2:
+        tangent = math.atan2(dy, dx)
+        if tangent < math.pi/2:
             return self.get_side(3.5)
-        elif tangent < pi:
+        elif tangent < math.pi:
             return self.get_side(2.5)
-        elif tangent < 3*pi/2:
+        elif tangent < 3*math.pi/2:
             return self.get_side(1.5)
         else:
             return self.get_side(0.5)
@@ -2140,6 +2238,9 @@ class Cell(pygame.sprite.Sprite):
                     suicide_flag = True
                     killer_cell = (new_x, new_y, new_dir, a, b)
                 if "forker" in cell_map[new_x, new_y].get_side((dir+2+new_dir)%4):
+                    suicide_flag = True
+                    killer_cell = (new_x, new_y, new_dir, a, b)
+                if "divider" in cell_map[new_x, new_y].get_side((dir+2+new_dir)%4):
                     suicide_flag = True
                     killer_cell = (new_x, new_y, new_dir, a, b)
                 

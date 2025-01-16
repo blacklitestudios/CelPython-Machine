@@ -4,7 +4,7 @@ from cell import Cell, cell_images, rot_center
 import cell
 from sometypes import void, Void
 
-from button import MenuSubItem, MenuSubCategory, Button
+from button import MenuSubItem, MenuSubCategory, Button, ToolbarButton, MenuButton
 
 # Initialize pygame
 pygame.init()
@@ -193,18 +193,18 @@ def tick():
         for cell in sorted(get_all_cells(), key=forward):
             cell.do_pull(i)
     for i in [0, 2, 3, 1]:
-        for cell in sorted(get_all_cells(), key=forward):
+        for cell in sorted(get_all_cells(), key=reverse):
             cell.do_grab(i)
     for i in [0, 2, 3, 1]:
         for cell in sorted(get_all_cells(), key=reverse):
             cell.do_push(i)
     for i in [0, 2, 3, 1]:
-        for cell in sorted(get_all_cells(), key=reverse):
+        for cell in sorted(get_all_cells(), key=forward):
             cell.do_nudge(i)
 
 
     # Gates
-    for cell in sorted(get_all_cells(), key=reverse):
+    for cell in sorted(get_all_cells(), key=forward):
         for i in range(4):
             cell.do_gate(i)
 
@@ -290,6 +290,25 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
+def scroll_up(x, y):
+    global cam_x, cam_y, TILE_SIZE
+    TILE_SIZE *= 2
+    if TILE_SIZE > 160:
+        TILE_SIZE = 160
+    else:
+        cam_x = (cam_x + x/2)*2
+        cam_y = (cam_y + y/2)*2
+def scroll_down(x, y):
+    global cam_x, cam_y, TILE_SIZE
+    TILE_SIZE /= 2
+    if TILE_SIZE < 1.25:
+        TILE_SIZE = 1.25
+    else:
+        cam_x = cam_x/2 - x/2
+        cam_y = cam_y/2 - y/2
+    
+
+
 
 
 # Initialize the game window
@@ -349,7 +368,7 @@ def get_bg(size):
     img = pygame.transform.scale(bg_image, (size, size))
     bg_cache[size] = img
     return img
-tools_icon_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/eraser.png")), (40, 40))
+tools_icon_image: ToolbarButton = pygame.transform.scale(pygame.image.load(resource_path("textures/eraser.png")), (40, 40))
 basic_icon_image: pygame.Surface = pygame.transform.scale(cell_images[4], (40, 40))
 movers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[2], (40, 40))
 generators_icon_image: pygame.Surface = pygame.transform.scale(cell_images[3], (40, 40))
@@ -359,21 +378,34 @@ divergers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[16], (
 destroyers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[12], (40, 40))
 misc_icon_image: pygame.Surface = pygame.transform.scale(cell_images[20], (40, 40))
 
-play_image: pygame.Surface = pygame.transform.scale(cell_images[2], (40, 40))
-pause_image: pygame.Surface = pygame.transform.rotate(pygame.transform.scale(cell_images[5], (40, 40)), -90)
-step_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/nudger.png")), (40, 40))
-reset_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/rotator_180.png")), (40, 40))
-initial_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/timewarper.png")), (40, 40))
+#play_image: pygame.Surface = pygame.transform.scale(cell_images[2], (40, 40))
+#pause_image: pygame.Surface = pygame.transform.rotate(pygame.transform.scale(cell_images[5], (40, 40)), -90)
+#step_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/nudger.png")), (40, 40))
+#reset_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/rotator_180.png")), (40, 40))
+#initial_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/timewarper.png")), (40, 40))
 
-exit_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/delete.png")), (40, 40))
-clear_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/trash.png")), (40, 40))
+#exit_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/delete.png")), (40, 40))
+#clear_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/trash.png")), (40, 40))
 
-menu_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/menu.png")), (40, 40))
+#menu_image: pygame.Surface = pygame.transform.scale(pygame.image.load(resource_path("textures/menu.png")), (40, 40))
 
 menu_bg: pygame.Surface = pygame.image.load(resource_path("textures/menubg.png"))
 
 freeze_image: pygame.Surface = pygame.image.load(resource_path("textures/effects/frozen.png"))
 protect_image: pygame.Surface = pygame.image.load(resource_path("textures/effects/protected.png"))
+
+buttonz = pygame.sprite.Group()
+
+play_button: Button = Button("mover.png", 40)
+play_button.rect.topright = (WINDOW_WIDTH-20, 20)
+pause_button: Button = Button("slide.png", 40, -90)
+pause_button.rect.topright = (WINDOW_WIDTH-20, 20)
+step_button: Button = Button("nudger.png", 40)
+step_button.rect.topright = (WINDOW_WIDTH-70, 20)
+initial_button: Button = Button("timewarper.png", 40)
+initial_button.rect.topright = (WINDOW_WIDTH-70, 70)
+reset_button: Button = Button("rotator_180.png", 40)
+reset_button.rect.topright = (WINDOW_WIDTH-20, 70)
 
 # Sounds
 beep: pygame.mixer.Sound = pygame.mixer.Sound(resource_path("audio/beep.wav"))
@@ -381,9 +413,9 @@ beep: pygame.mixer.Sound = pygame.mixer.Sound(resource_path("audio/beep.wav"))
 brush_image: pygame.Surface
 alpha_img: pygame.Surface
 
-play_rect: pygame.Rect = play_image.get_rect()
-play_rect.topright = (WINDOW_WIDTH - 20, 20)
-pause_rect: pygame.Rect = pause_image.get_rect()
+#play_rect: pygame.Rect = play_image.get_rect()
+#play_rect.topright = (WINDOW_WIDTH - 20, 20)
+'''pause_rect: pygame.Rect = pause_image.get_rect()
 pause_rect.topright = (WINDOW_WIDTH - 20, 20)
 step_rect: pygame.Rect = step_image.get_rect()
 step_rect.topright = (WINDOW_WIDTH - 70, 20)
@@ -393,7 +425,10 @@ initial_rect: pygame.Rect = initial_image.get_rect()
 initial_rect.topright = (WINDOW_WIDTH - 70, 70)
 
 menu_rect: pygame.Rect = menu_image.get_rect()
-menu_rect.topleft = (20, 20)
+menu_rect.topleft = (20, 20)'''
+
+menu_button = Button("menu.png", 40)
+menu_button.rect.topleft = (20, 20)
 
 menu_bg_rect: pygame.Rect = menu_bg.get_rect()
 menu_bg_rect.center = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2) 
@@ -433,31 +468,32 @@ misc_icon_rect.midleft = (7+9*54, WINDOW_HEIGHT - 27)
 toolbar_icon_rects: list[pygame.Rect] = [tools_icon_rect, basic_icon_rect, movers_icon_rect, generators_icon_rect, rotators_icon_rect, forcers_icon_rect, divergers_icon_rect, destroyers_icon_rect, None, misc_icon_rect]
 toolbar_subicons: list[MenuSubItem] = []
 
-continue_rect: pygame.Rect = play_image.get_rect()
-continue_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+continue_button = MenuButton("mover.png", 40)
+continue_button.rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
 
-menu_reset_rect: pygame.Rect = reset_image.get_rect()
-menu_reset_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*1, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+menu_reset_button = MenuButton("rotator_180.png", 40)
+menu_reset_button.rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*1, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
 
-clear_rect: pygame.Rect = clear_image.get_rect()
-clear_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*2, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+clear_button = MenuButton("trash.png", 40)
+clear_button.rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*2, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
 
-exit_rect: pygame.Rect = exit_image.get_rect()
-exit_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*6, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
+exit_button = MenuButton("delete.png", 40, tint=(255, 128, 128))
+exit_button.rect.bottomright = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*6, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
 
 logo_image = pygame.image.load("textures/logo.png")
 logo_rect = logo_image.get_rect()
 logo_rect.midbottom = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
 
-start_play_image = pygame.transform.scale(pygame.image.load("textures/mover.png"), (60, 60))
-start_play_rect = start_play_image.get_rect()
-start_play_rect.midtop = (WINDOW_WIDTH//2, logo_rect.bottom + 20)
+start_play_button: Button = Button("mover.png", 60)
+start_play_button.rect.midtop = (WINDOW_WIDTH//2, logo_rect.bottom + 20)
 
-quit_rect: pygame.Rect = exit_image.get_rect()
-quit_rect.topright = (WINDOW_WIDTH - 20, 20)
+quit_button: Button = Button("delete.png", 40, tint=(255, 128, 128))
+quit_button.rect.topright = (WINDOW_WIDTH - 20, 20)
 
 zoomin_button: Button = Button("zoomin.png", 40)
 zoomin_button.rect.topleft = (70, 20)
+zoomout_button: Button = Button("zoomout.png", 40)
+zoomout_button.rect.topleft = (120, 20)
 
 # Create submenu icons
 cell_id: int | str
@@ -551,104 +587,108 @@ while running:
             running = False
 
     if screen == "game":
+
+        step_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        reset_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        initial_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        menu_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        zoomin_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        zoomout_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        continue_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        exit_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        menu_reset_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        clear_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
         for event in events:
             if event.type == pygame.MOUSEWHEEL:
                 # Player is scrolling
                 if event.dict["y"] == -1:
                     # Scrolling down
-                    TILE_SIZE /= 2
-                    if TILE_SIZE < 1.25:
-                        TILE_SIZE = 1.25
-                    else:
-                        cam_x = cam_x/2 - mouse_x/2
-                        cam_y = cam_y/2 - mouse_y/2
+                    scroll_down(mouse_x, mouse_y)
                 if event.dict["y"] == 1:
                     # Scrolling up
-                    TILE_SIZE *= 2
-                    if TILE_SIZE > 160:
-                        TILE_SIZE = 160
-                    else:
-                        cam_x = (cam_x + mouse_x/2)*2
-                        cam_y = (cam_y + mouse_y/2)*2
+                    scroll_up(mouse_x, mouse_y)
 
             if event.type == pygame.MOUSEBUTTONUP:
                 if tools_icon_rect.collidepoint(mouse_x, mouse_y):
                     brush = 0
-                if basic_icon_rect.collidepoint(mouse_x, mouse_y):
+                elif basic_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 1:
                         current_menu = -1
                     else:
                         current_menu = 1
                     current_submenu = -1
-                if movers_icon_rect.collidepoint(mouse_x, mouse_y):
+                elif movers_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 2:
                         current_menu = -1
                     else:
                         current_menu = 2
                     current_submenu = -1
-                if generators_icon_rect.collidepoint(mouse_x, mouse_y):
+                elif generators_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 3:
                         current_menu = -1
                     else:
                         current_menu = 3
                     current_submenu = -1
-                if rotators_icon_rect.collidepoint(mouse_x, mouse_y):
+                elif rotators_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 4:
                         current_menu = -1
                     else:
                         current_menu = 4
                     current_submenu = -1
-                if forcers_icon_rect.collidepoint(mouse_x, mouse_y):
+                elif forcers_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 5:
                         current_menu = -1
                     else:
                         current_menu = 5
                     current_submenu = -1
-                if divergers_icon_rect.collidepoint(mouse_x, mouse_y):
+                elif divergers_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 6:
                         current_menu = -1
                     else:
                         current_menu = 6
                     current_submenu = -1
-                if destroyers_icon_rect.collidepoint(mouse_x, mouse_y):
+                elif destroyers_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 7:
                         current_menu = -1
                     else:
                         current_menu = 7
                     current_submenu = -1
-                if misc_icon_rect.collidepoint(mouse_x, mouse_y):
+                elif misc_icon_rect.collidepoint(mouse_x, mouse_y):
                     if current_menu == 9:
                         current_menu = -1
                     else:
                         current_menu = 9
                     current_submenu = -1
                 
-                if play_rect.collidepoint(mouse_x, mouse_y):
+                elif play_button.rect.collidepoint(mouse_x, mouse_y):
                     paused = not paused
-                if step_rect.collidepoint(mouse_x, mouse_y):
+                elif step_button.rect.collidepoint(mouse_x, mouse_y):
                     tick()
-                if reset_rect.collidepoint(mouse_x, mouse_y):
+                elif reset_button.rect.collidepoint(mouse_x, mouse_y):
                     beep.play()
                     reset()
-                if initial_rect.collidepoint(mouse_x, mouse_y):
+                elif initial_button.rect.collidepoint(mouse_x, mouse_y):
                     beep.play()
                     set_initial()
+                elif zoomin_button.rect.collidepoint(mouse_x, mouse_y):
+                    scroll_up(WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
+                elif zoomout_button.rect.collidepoint(mouse_x, mouse_y):
+                    scroll_down(WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
 
-                if menu_rect.collidepoint(mouse_x, mouse_y):
+                elif menu_button.rect.collidepoint(mouse_x, mouse_y):
                     menu_on = not menu_on
-                if continue_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                elif continue_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
                     menu_on = False
                     beep.play()
-                    all_buttons.append(True)
-                if exit_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                elif exit_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
                     beep.play()
                     screen = "title"
 
-                if menu_reset_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                elif menu_reset_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
                     beep.play()
                     reset()
 
-                if clear_rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                elif clear_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
                     beep.play()
                     trash()
 
@@ -724,18 +764,10 @@ while running:
         world_mouse_tile_x = int(world_mouse_x//TILE_SIZE)
         world_mouse_tile_y = int(world_mouse_y//TILE_SIZE)
 
-        if play_rect.collidepoint(mouse_x, mouse_y):
-            all_buttons.append(True)
-        if step_rect.collidepoint(mouse_x, mouse_y):
-            all_buttons.append(True)
-        if reset_rect.collidepoint(mouse_x, mouse_y):
-            all_buttons.append(True)
-        if initial_rect.collidepoint(mouse_x, mouse_y):
-            all_buttons.append(True)
-        if menu_rect.collidepoint(mouse_x, mouse_y):
-            all_buttons.append(True)
-        if menu_bg_rect.collidepoint(mouse_x, mouse_y) and menu_on:
-            all_buttons.append(True)
+        
+
+
+
 
         # Check for a press suppression
         button: MenuSubItem
@@ -814,135 +846,44 @@ while running:
             button.update(mouse_buttons, mouse_x, mouse_y, brush, current_menu)
             button.draw(window)
         if paused:
-            image = play_image.convert_alpha()
-            alpha_img = pygame.Surface(play_rect.size, pygame.SRCALPHA)
-            if play_rect.collidepoint(mouse_x, mouse_y):
-                alpha_img.fill((255, 255, 255, 255))
-                if mouse_buttons[0]:
-                    alpha_img.fill((128, 128, 128, 255))
-            else:
-                alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            window.blit(image, play_rect)
+            play_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            play_button.draw(window)
         else:
-            image = pause_image.convert_alpha()
-            alpha_img = pygame.Surface(pause_rect.size, pygame.SRCALPHA)
-            if pause_rect.collidepoint(mouse_x, mouse_y):
-                alpha_img.fill((255, 255, 255, 255))
-                if mouse_buttons[0]:
-                    alpha_img.fill((128, 128, 128, 255))
-            else:
-                alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            window.blit(image, pause_rect)
+            pause_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            pause_button.draw(window)
 
-        play_rect.topright = (WINDOW_WIDTH - 20, 20)
-        pause_rect.topright = (WINDOW_WIDTH - 20, 20)
-        step_rect.topright = (WINDOW_WIDTH - 70, 20)
-        reset_rect.topright = (WINDOW_WIDTH - 20, 70)
-        initial_rect.topright = (WINDOW_WIDTH - 70, 70)
-        image = step_image.convert_alpha()
-        alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
-        if step_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 255, 255, 255))
-            if mouse_buttons[0]:
-                alpha_img.fill((128, 128, 128, 255))
-        else:
-            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, step_rect)
+        
+        step_button.draw(window)       
+        reset_button.draw(window)       
+        initial_button.draw(window)       
+        menu_button.draw(window)
+        zoomin_button.draw(window)
+        zoomout_button.draw(window)
 
-        image = reset_image.convert_alpha()
-        alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
-        if reset_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 255, 255, 255))
-            if mouse_buttons[0]:
-                alpha_img.fill((128, 128, 128, 255))
-        else:
-            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, reset_rect)
-
-        image = initial_image.convert_alpha()
-        alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
-        if initial_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 255, 255, 255))
-            if mouse_buttons[0]:
-                alpha_img.fill((128, 128, 128, 255))
-        else:
-            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, initial_rect)
-
-        image = menu_image.convert_alpha()
-        alpha_img = pygame.Surface(step_rect.size, pygame.SRCALPHA)
-        if menu_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 255, 255, 255))
-            if mouse_buttons[0]:
-                alpha_img.fill((128, 128, 128, 255))
-        else:
-            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, menu_rect)
         title_rect.midtop = (WINDOW_WIDTH//2, menu_bg_rect.top + 10)
         menu_bg_rect.center = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
-        continue_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
-        menu_reset_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*1, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
-        clear_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*2, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
-        exit_rect.bottomleft = (WINDOW_WIDTH//2 - menu_bg_rect.width//2 + 32 + 50*6, WINDOW_HEIGHT//2 + menu_bg_rect.height//2 - 32)
-        zoomin_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        zoomin_button.draw(window)
+        
+
         if menu_on:
             window.blit(menu_bg, menu_bg_rect)
-            window.blit(title_text, title_rect)
-            image = play_image.convert_alpha()
-            alpha_img = pygame.Surface(continue_rect.size, pygame.SRCALPHA)
-            if continue_rect.collidepoint(mouse_x, mouse_y):
-                alpha_img.fill((255, 255, 255, 255))
-                if mouse_buttons[0]:
-                    alpha_img.fill((128, 128, 128, 255))
-            else:
-                alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            window.blit(image, continue_rect)
+            continue_button.draw(window)
 
-            image = exit_image.convert_alpha()
-            alpha_img = pygame.Surface(continue_rect.size, pygame.SRCALPHA)
-            if exit_rect.collidepoint(mouse_x, mouse_y):
-                alpha_img.fill((255, 128, 128, 255))
-                if mouse_buttons[0]:
-                    alpha_img.fill((128, 64, 64, 255))
-            else:
-                alpha_img.fill((255, 128, 128, 255*0.5)) # type: ignore
-            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            window.blit(image, exit_rect)
+            exit_button.draw(window)
 
-            image = reset_image.convert_alpha()
-            alpha_img = pygame.Surface(menu_reset_rect.size, pygame.SRCALPHA)
-            if menu_reset_rect.collidepoint(mouse_x, mouse_y):
-                alpha_img.fill((255, 255, 255, 255))
-                if mouse_buttons[0]:
-                    alpha_img.fill((128, 128, 128, 255))
-            else:
-                alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            window.blit(image, menu_reset_rect)
+            menu_reset_button.draw(window)
 
-            image = clear_image.convert_alpha()
-            alpha_img = pygame.Surface(clear_rect.size, pygame.SRCALPHA)
-            if clear_rect.collidepoint(mouse_x, mouse_y):
-                alpha_img.fill((255, 255, 255, 255))
-                if mouse_buttons[0]:
-                    alpha_img.fill((128, 128, 128, 255))
-            else:
-                alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-            image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            window.blit(image, clear_rect)
+            clear_button.draw(window)
+
+
 
             update_delay_text = nokia(10).render(f"Update delay: {step_speed}", True, (255, 255, 255))
             update_delay_rect = update_delay_text.get_rect()
             update_delay_rect.topleft = (menu_bg_rect.x + 20, menu_bg_rect.y + 40)
             window.blit(update_delay_text, update_delay_rect)
+
+
+
+
 
         
 
@@ -951,45 +892,25 @@ while running:
         # Event loop
         for event in events:
             if event.type == pygame.MOUSEBUTTONUP:
-                if mouse_buttons[0] and start_play_rect.collidepoint(mouse_x, mouse_y):
+                if mouse_buttons[0] and start_play_button.rect.collidepoint(mouse_x, mouse_y):
                     screen = "game"
                     trash()
                     menu_on = False
                     TILE_SIZE = 20.0
                     cam_x = 0
                     cam_y = 0
-                if mouse_buttons[0] and quit_rect.collidepoint(mouse_x, mouse_y):
+                if mouse_buttons[0] and quit_button.rect.collidepoint(mouse_x, mouse_y):
                     running = False
         window.fill(BACKGROUND, window.get_rect())
         #logo_image, _ = rot_center(logo_image, logo_rect, math.sin(t))
         logo_rect.midbottom = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
         window.blit(cell.rot_center(logo_image, logo_rect, math.sin(t)*5)[0], cell.rot_center(logo_image, logo_rect, math.sin(t)*5)[1])       
 
-        start_play_rect.midtop = (WINDOW_WIDTH//2, logo_rect.bottom + 20)
-        image = start_play_image.convert_alpha()
-        alpha_img = pygame.Surface(start_play_rect.size, pygame.SRCALPHA)
-        if start_play_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 255, 255, 255))
-            if mouse_buttons[0]:
-                alpha_img.fill((128, 128, 128, 255))
-        else:
-            alpha_img.fill((255, 255, 255, 255*0.5)) # type: ignore
-        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(image, start_play_rect)
-        quit_rect.topright = (WINDOW_WIDTH - 20, 20)
+        start_play_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        start_play_button.draw(window)
 
-        image = exit_image.convert_alpha()
-        alpha_img = pygame.Surface(continue_rect.size, pygame.SRCALPHA)
-        if quit_rect.collidepoint(mouse_x, mouse_y):
-            alpha_img.fill((255, 128, 128, 255))
-            if mouse_buttons[0]:
-                alpha_img.fill((128, 64, 64, 255))
-        else:
-            alpha_img.fill((255, 128, 128, 255*0.5)) # type: ignore
-        image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        #window.blit(image, exit_rect)
-        window.blit(image, quit_rect)
-
+        quit_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        quit_button.draw(window)
 
     clock.tick()
     dt = clock.get_time() / 1000

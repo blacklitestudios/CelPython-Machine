@@ -114,6 +114,7 @@ cell_names = {
     102: "ccwdivider",
     114: "nudger",
     208: "diodediverger",
+    1201: "digenerator",
 }
 
 cell_cats_new = [
@@ -131,7 +132,7 @@ cell_cats_new = [
      [114] # Other
     ], # Movers
 
-    [[3, 23, 26, 27, 40], # Generators
+    [[3, 23, 26, 27, 40, 1201], # Generators
      [55], # Super Generators
      [45, 46], # Replicators
      [32, 33, 34, 35, 36, 37] # Gates
@@ -446,7 +447,7 @@ class Cell(pygame.sprite.Sprite):
         from main import window, TILE_SIZE, freeze_image, WINDOW_HEIGHT, WINDOW_WIDTH, protect_image, cell_map, delete_map
         if self not in cell_map.values() and self not in delete_map:
             return
-        img: pygame.Surface = self.loadscale(TILE_SIZE)
+        img = self.loadscale(TILE_SIZE)
         true_img, true_rect = rot_center(img, self.rect, self.actual_dir)
         if true_rect.y+TILE_SIZE < 0:
             return
@@ -472,22 +473,6 @@ class Cell(pygame.sprite.Sprite):
         self.img_cache[size] = img
         return img
 
-    def tick(self, dir: int):
-        '''Tick the cell, once per tick'''
-        
-        self.push_extended = False
-        self.pull_extended = False
-        
-        if (self.suppressed or self.frozen):
-            return False
-        self.do_replicate(dir)
-        #self.do_flip()
-        #self.do_rot()
-        #self.do_gear()
-        self.do_redirect()
-        self.do_impulse(dir)
-        self.do_repulse(dir)
-        return True
     
     def on_force(self, dir, origin: Cell, suppress: bool = True, force_type = 0):
         from main import cell_map
@@ -1130,6 +1115,8 @@ class Cell(pygame.sprite.Sprite):
             case 208:
                 self.left = "diverger"
                 self.chirality = [0]
+            case 1201:
+                self.right = "digenerator"
             case _:
                 pass
 
@@ -1214,7 +1201,7 @@ class Cell(pygame.sprite.Sprite):
             if cell.get_side((dir+2)) == "antiweight":
                 bias += cell_map[x, y].weight
 
-            if self.dir == dir and not move:
+            if self.dir == dir and move:
                 self.suppressed = True
 
             if bias <= 0:
@@ -1790,7 +1777,7 @@ class Cell(pygame.sprite.Sprite):
                 self.suppressed = True
                 return 
         else:
-            if not self.nudge(self.dir, False):
+            if not self.drill(self.dir, test=True):
                 self.suppressed = True
                 return 
 
@@ -1818,11 +1805,11 @@ class Cell(pygame.sprite.Sprite):
         if self.frozen:
             return
 
-        if self.get_side(dir) == "generator":
+        if self.get_side(dir) in ["generator"]:
             self.test_gen(dir, 0)
-        if self.get_side(dir) == "cwgenerator":
+        if self.get_side(dir) in ["cwgenerator", "digenerator"]:
             self.test_gen(dir, 1)
-        if self.get_side(dir) == "ccwgenerator":
+        if self.get_side(dir) in ["ccwgenerator", "digenerator"]:
              
             self.test_gen(dir, -1)
 
@@ -1996,7 +1983,7 @@ class Cell(pygame.sprite.Sprite):
         
     def cw_grab(self, dir: int, move: bool, hp: int = 1, force: int = 1, speed: int = 1) -> bool | int:
         if move:
-            if not self.nudge(dir, False):
+            if not self.nudge(dir, False, is_grab=True):
                 return
         from main import cell_map, delete_map
         suicide_flag = False
@@ -2026,21 +2013,8 @@ class Cell(pygame.sprite.Sprite):
                 trash_flag = True
                 
 
-        if incr[:2] in cell_map.keys():
-            cell = cell_map[incr[:2]]
-            if cell.cwgrabs and (cell.dir+1)%4 == incr[4]:
-                bias+=1
-            if cell.ccwgrabs and (cell.dir-1)%4 == incr[4]:
-                bias -= 1
-            if cell.get_side((incr[4]+2)%4) == "cwgrapulse":
-                bias+=1
-            if cell.get_side((incr[4]+2)%4) == "ccwgrapulse":
-                bias-=1
-            if cell.get_side((incr[4])%4) == "cwgrapulse":
-                bias-=1
-            if cell.get_side((incr[4])%4) == "ccwgrapulse":
-                bias+=1
-            cell.on_force(dir, self, force_type=1)
+        bias = self.get_cw_grab_bias(dir, force)
+        print(self, bias)
 
         if bias <= 0:
             return False
@@ -2056,7 +2030,7 @@ class Cell(pygame.sprite.Sprite):
             if not trash_flag:
                 try:
                     if not cell_map[incr[:2]].cw_grab((incr[4]-1)%4, True, force=bias, speed=speed):
-                        cell_map[(self.tile_x, self.tile_y)] = self
+                        #cell_map[(self.tile_x, self.tile_y)] = self
                         pass
                         #return False
                 except RecursionError:
@@ -2088,17 +2062,67 @@ class Cell(pygame.sprite.Sprite):
                         delete_map.append(self)
 
             if self.pushes or self.pulls or self.cwgrabs or self.ccwgrabs:
-                if self.dir == (incr[4])%4:
+                if self.dir == (incr[4]-1)%4:
                     self.suppressed = True
 
             
 
         return True
     
+    def get_cw_grab_bias(self, dir, force=0):
+        from main import cell_map
+        bias = force
+        cell = self
+        incr = increment_with_divergers(self.tile_x, self.tile_y, (dir+1)%4, force_type=1, displace=True)
+        if cell.ccwgrabs and (cell.dir+1)%4 == incr[4]:
+            bias+=1
+        if cell.cwgrabs and (cell.dir-1)%4 == incr[4]:
+            bias -= 1
+        if cell.get_side((incr[4]+2)%4) == "cwgrapulse":
+            bias+=1
+        if cell.get_side((incr[4]+2)%4) == "ccwgrapulse":
+            bias-=1
+        if cell.get_side((incr[4])%4) == "cwgrapulse":
+            bias-=1
+        if cell.get_side((incr[4])%4) == "ccwgrapulse":
+            bias+=1
+        #cell.on_force(dir, self, force_type=1)
+        
+        if incr[:2] not in cell_map.keys():
+            return bias
+        bias += cell_map[incr[:2]].get_cw_grab_bias((dir)%4, force=0)
+        return bias
+
+    def get_ccw_grab_bias(self, dir, force=0):
+        from main import cell_map
+        bias = force
+        cell = self
+        incr = increment_with_divergers(self.tile_x, self.tile_y, (dir-1)%4, force_type=3, displace=True)
+        cell = self
+        if cell.ccwgrabs and (cell.dir-1)%4 == incr[4]:
+            bias+=1
+        if cell.cwgrabs and (cell.dir+1)%4 == incr[4]:
+            bias -= 1
+        if cell.get_side((incr[4]+2)%4) == "cwgrapulse":
+            bias+=1
+        if cell.get_side((incr[4]+2)%4) == "ccwgrapulse":
+            bias-=1
+        if cell.get_side((incr[4])%4) == "cwgrapulse":
+            bias-=1
+        if cell.get_side((incr[4])%4) == "ccwgrapulse":
+            bias+=1
+        
+        if incr[:2] not in cell_map.keys():
+            return bias
+
+        bias += cell_map[incr[:2]].get_ccw_grab_bias((dir)%4, force=0)
+        return bias
+        
+    
     def ccw_grab(self, dir: int, move: bool, hp: int = 1, force: int = 1, speed: int = 1) -> bool | int:
         from main import cell_map, delete_map 
         if move:
-            if not self.nudge(dir, False):
+            if not self.nudge(dir, False, is_grab=True):
                 return
         suicide_flag = False
         trash_flag = False
@@ -2106,6 +2130,7 @@ class Cell(pygame.sprite.Sprite):
         incr = increment_with_divergers(self.tile_x, self.tile_y, (dir+3)%4)
         new_x, new_y, new_dir, a, b = increment_with_divergers(self.tile_x, self.tile_y, dir)
         bias = force
+        cell = self
         if move:
             if (new_x, new_y) in cell_map.keys():
                 cell = cell_map[new_x, new_y]
@@ -2130,21 +2155,8 @@ class Cell(pygame.sprite.Sprite):
                 trash_flag = True
                 
 
-        if incr[:2] in cell_map.keys():
-            cell = cell_map[incr[:2]]
-            if cell.ccwgrabs and (cell.dir-1)%4 == incr[4]:
-                bias+=1
-            if cell.cwgrabs and (cell.dir+1)%4 == incr[4]:
-                bias -= 1
-            if cell.get_side((incr[4]+2)%4) == "cwgrapulse":
-                bias+=1
-            if cell.get_side((incr[4]+2)%4) == "ccwgrapulse":
-                bias-=1
-            if cell.get_side((incr[4])%4) == "cwgrapulse":
-                bias-=1
-            if cell.get_side((incr[4])%4) == "ccwgrapulse":
-                bias+=1
-            cell.on_force(dir, self, force_type=1)
+        bias += self.get_ccw_grab_bias(dir, 1)
+        cell.on_force(dir, self, force_type=1)
 
         if bias <= 0:
             return False
@@ -2191,7 +2203,7 @@ class Cell(pygame.sprite.Sprite):
                         delete_map.append(self)
 
             if self.pushes or self.pulls or self.cwgrabs or self.ccwgrabs:
-                if self.dir == (incr[4])%4:
+                if self.dir == (incr[4]+1)%4:
                     self.suppressed = True
 
             
@@ -2214,16 +2226,27 @@ class Cell(pygame.sprite.Sprite):
         if incr_ccw[:2] in cell_map.keys():
             if cell_map[incr_ccw[:2]].get_side((dir+3+incr_ccw[2])) == "wall":
                 return False
+            
+        if self.get_cw_grab_bias(dir) <= 0 or self.get_ccw_grab_bias(dir) <= 0:
+            return False
         
         if move:
-            if not self.nudge(dir, not test, force):
+            if not self.nudge(dir, False, force, is_grab=True):
                 return False
         if incr_cw[:2] in cell_map.keys():
-            cell_map[incr_cw[:2]].cw_grab(dir, True)
+            print("YASS")
+            if not cell_map[incr_cw[:2]].cw_grab(dir, True, force=0):
+                pass
+                #return False
         if incr_ccw[:2] in cell_map.keys():
-            cell_map[incr_ccw[:2]].ccw_grab(dir, True)
+            if not cell_map[incr_ccw[:2]].ccw_grab(dir, True, force=0):
+                pass
+                #return False
+        if move:
+            if not self.nudge(dir, True, force, is_grab=True):
+                return False
 
-    def nudge(self, dir: int, move: bool, force: int = 0, hp: int = 1, active=True):
+    def nudge(self, dir: int, move: bool, force: int = 0, hp: int = 1, active=True, is_grab=False):
         from main import cell_map, delete_map
         suicide_flag = False
         trash_flag = False
@@ -2246,8 +2269,9 @@ class Cell(pygame.sprite.Sprite):
                 
 
         if (new_x, new_y) in cell_map.keys():
+                cell = cell_map[new_x, new_y]
                 if "enemy" in cell_map[new_x, new_y].get_side((dir+2+new_dir)%4):
-                    cell = cell_map[new_x, new_y]
+
                     if not self.mexican_standoff(cell):
                         return
             
@@ -2259,10 +2283,16 @@ class Cell(pygame.sprite.Sprite):
                     suicide_flag = True
                     killer_cell = (new_x, new_y, new_dir, a, b)
 
-        if not suicide_flag:               
+                if cell.cwgrabs and cell.ccwgrabs and is_grab and cell.dir == dir:
+                    cell.grab(dir, True)
+
+        if not suicide_flag:    
+                    
             if (new_x, new_y) in cell_map.keys():
+                front_cell = cell_map[(self.tile_x, self.tile_y)]   
+                
                 cell_map[(self.tile_x, self.tile_y)] = self
-                print("fial")
+                print(self)
                 return False
 
 
@@ -2305,19 +2335,19 @@ class Cell(pygame.sprite.Sprite):
         if self.dir == dir:
             if self.cwgrabs or self.ccwgrabs:
 
+
+                if self.pushes:
+                    self.push(dir, False)
+
                 if self.cwgrabs:
                     if self.ccwgrabs:
 
-                        self.grab(dir, False)
+                        self.grab(dir, True)
                     else:
-                        self.cw_grab(dir, False)
+                        self.cw_grab(dir, True)
                 elif self.ccwgrabs:
-                    self.ccw_grab(dir, False)
+                    self.ccw_grab(dir, True)
 
-                if self.pushes:
-                    self.push(dir, True)
-                else:
-                    self.nudge(dir, True)
 
 
                 self.suppressed = True

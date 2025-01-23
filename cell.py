@@ -1,5 +1,6 @@
 import pygame
 import math
+import random
 
 pygame.init()
 
@@ -115,6 +116,7 @@ cell_names = {
     114: "nudger",
     208: "diodediverger",
     1201: "digenerator",
+    "bob": "bob"
 }
 
 cell_cats_new = [
@@ -129,7 +131,7 @@ cell_cats_new = [
      [14, 28, 60, 61, 73, 74, 77, 78], # Pullers
      [71, 72, 73, 74, 75, 76, 77, 78], # Grabbers
      [58, 59, 60, 61, 75, 76, 77, 78], # Drillers
-     [114] # Other
+     [114, "bob"] # Other
     ], # Movers
 
     [[3, 23, 26, 27, 40, 1201], # Generators
@@ -444,8 +446,8 @@ class Cell(pygame.sprite.Sprite):
 
     def draw(self):
         '''Draw the cell on the screen'''
-        from main import window, TILE_SIZE, freeze_image, WINDOW_HEIGHT, WINDOW_WIDTH, protect_image, cell_map, delete_map
-        if self not in cell_map.values() and self not in delete_map:
+        from main import window, TILE_SIZE, freeze_image, WINDOW_HEIGHT, WINDOW_WIDTH, protect_image, cell_map, delete_map, below, above
+        if (self not in cell_map.values() and self not in below.values() and self not in above.values()) and self not in delete_map:
             return
         img = self.loadscale(TILE_SIZE)
         true_img, true_rect = rot_center(img, self.rect, self.actual_dir)
@@ -705,6 +707,7 @@ class Cell(pygame.sprite.Sprite):
         self.demolishes = False
         self.nudges = False
         self.mirrors = []
+        self.bobs = False
 
         # Flags
         self.suppressed = False # Set the suppressed flag to False
@@ -1117,6 +1120,8 @@ class Cell(pygame.sprite.Sprite):
                 self.chirality = [0]
             case 1201:
                 self.right = "digenerator"
+            case "bob":
+                self.bobs = True
             case _:
                 pass
 
@@ -1178,7 +1183,7 @@ class Cell(pygame.sprite.Sprite):
             print(self.tile_x, self.tile_y, fx, fy)
             if (fx, fy) in cell_map.keys():
                 cell = cell_map[fx, fy]
-                if cell.get_side((dir+2)) in ["wall", "undirectional"]:
+                if cell.get_side((dir+fdir+2)) in ["wall", "undirectional"]:
                     print("flase")
                     return False
                 if cell.get_side((dir+2)) in ["forker", "triforker", "cwforker", "ccwforker", "trash", "divider", "tridivider", "cwdivider", "ccwdivider"]:
@@ -1898,6 +1903,12 @@ class Cell(pygame.sprite.Sprite):
                 if self.dir in [1, 3]:
                         self.test_flip(i, 2)
 
+    def do_bob(self):
+        if self.frozen:
+            return
+        if self.bobs:
+            self.push(random.randint(0, 3), True, force=1)
+
     def do_mirror(self, dir1, dir2):
         dir_to_delta: list = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
         dx1, dy1 = dir_to_delta[dir1]
@@ -2012,8 +2023,8 @@ class Cell(pygame.sprite.Sprite):
             if "forker" in cell_map[incr[:2]].get_side((dir+3)%4):
                 trash_flag = True
                 
-
-        bias = self.get_cw_grab_bias(dir, force)
+        print(force)
+        bias = self.get_cw_grab_bias(dir, force, times=1)
         print(self, bias)
 
         if bias <= 0:
@@ -2069,8 +2080,10 @@ class Cell(pygame.sprite.Sprite):
 
         return True
     
-    def get_cw_grab_bias(self, dir, force=0):
+    def get_cw_grab_bias(self, dir, force=0, times=-1):
         from main import cell_map
+        if times == 0:
+            return force
         bias = force
         cell = self
         incr = increment_with_divergers(self.tile_x, self.tile_y, (dir+1)%4, force_type=1, displace=True)
@@ -2090,11 +2103,13 @@ class Cell(pygame.sprite.Sprite):
         
         if incr[:2] not in cell_map.keys():
             return bias
-        bias += cell_map[incr[:2]].get_cw_grab_bias((dir)%4, force=0)
+        bias += cell_map[incr[:2]].get_cw_grab_bias((dir)%4, force=0, times = times-1)
         return bias
 
-    def get_ccw_grab_bias(self, dir, force=0):
+    def get_ccw_grab_bias(self, dir, force=0, times=-1):
         from main import cell_map
+        if times == 0:
+            return force
         bias = force
         cell = self
         incr = increment_with_divergers(self.tile_x, self.tile_y, (dir-1)%4, force_type=3, displace=True)
@@ -2115,7 +2130,7 @@ class Cell(pygame.sprite.Sprite):
         if incr[:2] not in cell_map.keys():
             return bias
 
-        bias += cell_map[incr[:2]].get_ccw_grab_bias((dir)%4, force=0)
+        bias += cell_map[incr[:2]].get_ccw_grab_bias((dir)%4, force=0, times=times-1)
         return bias
         
     
@@ -2155,7 +2170,7 @@ class Cell(pygame.sprite.Sprite):
                 trash_flag = True
                 
 
-        bias += self.get_ccw_grab_bias(dir, 1)
+        bias += self.get_ccw_grab_bias(dir, 1, times=1)
         cell.on_force(dir, self, force_type=1)
 
         if bias <= 0:
@@ -2235,11 +2250,11 @@ class Cell(pygame.sprite.Sprite):
                 return False
         if incr_cw[:2] in cell_map.keys():
             print("YASS")
-            if not cell_map[incr_cw[:2]].cw_grab(dir, True, force=0):
+            if not cell_map[incr_cw[:2]].cw_grab(dir, True, force=self.get_cw_grab_bias(dir)):
                 pass
                 #return False
         if incr_ccw[:2] in cell_map.keys():
-            if not cell_map[incr_ccw[:2]].ccw_grab(dir, True, force=0):
+            if not cell_map[incr_ccw[:2]].ccw_grab(dir, True, force=self.get_ccw_grab_bias(dir)):
                 pass
                 #return False
         if move:
@@ -2283,7 +2298,7 @@ class Cell(pygame.sprite.Sprite):
                     suicide_flag = True
                     killer_cell = (new_x, new_y, new_dir, a, b)
 
-                if cell.cwgrabs and cell.ccwgrabs and is_grab and cell.dir == dir:
+                if cell.cwgrabs and cell.ccwgrabs and is_grab and cell.dir == dir and move:
                     cell.grab(dir, True)
 
         if not suicide_flag:    
@@ -2306,7 +2321,7 @@ class Cell(pygame.sprite.Sprite):
                 print("eee")
                 
             
-                cell_map[killer_cell[:2]].on_force(dir, self)
+                cell_map[killer_cell[:2]].on_force(b, self)
                 if (self.tile_x, self.tile_y) in cell_map.keys():
                     del cell_map[(self.tile_x, self.tile_y)]
                 self.tile_x = killer_cell[0]
@@ -2370,63 +2385,3 @@ class Cell(pygame.sprite.Sprite):
         elif self.hp == 0:
             trash_sound.play()
             del cell_map[self.tile_x, self.tile_y]
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

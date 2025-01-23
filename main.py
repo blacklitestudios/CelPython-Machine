@@ -10,22 +10,22 @@ from button import MenuSubItem, MenuSubCategory, Button, ToolbarButton, MenuButt
 pygame.init()
 
 
-def place_cell(x: int, y: int, id: int | str, dir: int) -> Void:
+def place_cell(x: int, y: int, id: int | str, dir: int, layer: dict[tuple[int, int], Cell]) -> Void:
     '''Place a cell on the cell map'''
     if not (x >= 0 and x < GRID_WIDTH and y >= 0 and y < GRID_HEIGHT):
         return void
-    if (x, y) in cell_map.keys():
+    if (x, y) in layer.keys():
         # Target cell is not empty
         if id == 0:
             # New cell type is empty, erase cell
-            del cell_map[(x, y)]
+            del layer[(x, y)]
         else:
             # New cell type is not empty, replace cell
-            cell_map[(x, y)] = Cell(x, y, id, dir)
+            layer[(x, y)] = Cell(x, y, id, dir)
     else:
         # Target cell is empty, add cell
         if id != 0:
-            cell_map[(x, y)] = Cell(x, y, id, dir)
+            layer[(x, y)] = Cell(x, y, id, dir)
 
     if tick_number == 0:
         # Reset the initial state only if the current state is initial
@@ -132,6 +132,9 @@ def tick():
         for cell in sorted(get_all_cells(), key=forward):
             cell.do_intake(i)
 
+    for cell in sorted(get_all_cells(), key=forward):
+        cell.do_bob()
+
     # Do generators subticks 90 to 93
     for i in [0, 2, 3, 1]:
         for cell in sorted(get_all_cells(), key=reverse):
@@ -217,6 +220,9 @@ def draw():
         for cell in delete_map:
             cell.update()
             cell.draw()
+    for cell in below.values(): 
+        cell.update()
+        cell.draw()
     for cell in cell_map.values(): 
         cell.update()
         cell.draw()
@@ -274,6 +280,19 @@ def trash():
 
     set_initial()
     reset()
+
+def delete_selected():
+    global select_start, select_end, selecting
+    for i in range(max(min(select_start[0], select_end[0]), 0), min(max(select_start[0]+1, select_end[0]+1), GRID_WIDTH)):
+        for j in range(max(min(select_start[1], select_end[1]), 0), min(max(select_start[1]+1, select_end[1]+1), GRID_HEIGHT)):
+            if (i, j) in cell_map.keys():
+                del cell_map[(i, j)]
+    select_start = None
+    select_end = None
+    selecting = False
+
+
+
 
 
 def nokia(size):
@@ -343,6 +362,9 @@ step_speed: float = 0.2
 # Brush settings
 brush: int | str = 4
 brush_dir: int = 0 # 0 = right, 1 = down, 2 = left, 3 = up
+selecting = False
+select_start = None
+select_end = None
 
 # Camera coords
 cam_x: float = float(0)
@@ -368,6 +390,7 @@ def get_bg(size):
     img = pygame.transform.scale(bg_image, (size, size))
     bg_cache[size] = img
     return img
+
 tools_icon_image: ToolbarButton = pygame.transform.scale(pygame.image.load(resource_path("textures/eraser.png")), (40, 40))
 basic_icon_image: pygame.Surface = pygame.transform.scale(cell_images[4], (40, 40))
 movers_icon_image: pygame.Surface = pygame.transform.scale(cell_images[2], (40, 40))
@@ -494,6 +517,15 @@ zoomin_button: Button = Button("zoomin.png", 40)
 zoomin_button.rect.topleft = (70, 20)
 zoomout_button: Button = Button("zoomout.png", 40)
 zoomout_button.rect.topleft = (120, 20)
+eraser_button: Button = Button("eraser.png", 40)
+eraser_button.rect.topleft = (170, 20)
+select_button: Button = Button("select.png", 40)
+select_button.rect.topleft = (20, 70)
+delete_button: Button = Button("delete.png", 40)
+delete_button.rect.topleft = (170, 70)
+
+topleft_button_group = pygame.sprite.Group()
+topleft_button_group.add(menu_button, zoomin_button, zoomout_button, eraser_button, select_button, delete_button)
 
 # Create submenu icons
 cell_id: int | str
@@ -567,6 +599,10 @@ event: pygame.event.Event
 # Main game loop
 running: bool = True
 screen = "title"
+
+if __name__ != "__main__":
+    pass
+
 while running:
     WINDOW_HEIGHT = window.get_height()
     WINDOW_WIDTH = window.get_width()
@@ -587,13 +623,20 @@ while running:
             running = False
 
     if screen == "game":
-
+        step_button.rect.topright =(WINDOW_WIDTH - 70, 20)
+        play_button.rect.topright = (WINDOW_WIDTH - 20, 20)
+        pause_button.rect.topright = (WINDOW_WIDTH - 20, 20)
+        reset_button.rect.topright = (WINDOW_WIDTH - 20, 70)
+        initial_button.rect.topright = (WINDOW_WIDTH - 70, 70)
         step_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
         reset_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
         initial_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        menu_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        zoomin_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        zoomout_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        for i in topleft_button_group:
+            i.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+        if selecting:
+            select_button.tint = (128, 255, 128)
+        else:
+            select_button.tint = (255, 255, 255)
         continue_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
         exit_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
         menu_reset_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
@@ -607,100 +650,121 @@ while running:
                 if event.dict["y"] == 1:
                     # Scrolling up
                     scroll_up(mouse_x, mouse_y)
+            
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if selecting and event.dict["button"] == 1 and True not in all_buttons:
+                    select_start = (world_mouse_tile_x, world_mouse_tile_y)
+                    select_end = (world_mouse_tile_x, world_mouse_tile_y)
 
             if event.type == pygame.MOUSEBUTTONUP:
-                if tools_icon_rect.collidepoint(mouse_x, mouse_y):
-                    brush = 0
-                elif basic_icon_rect.collidepoint(mouse_x, mouse_y):
-                    if current_menu == 1:
-                        current_menu = -1
-                    else:
-                        current_menu = 1
-                    current_submenu = -1
-                elif movers_icon_rect.collidepoint(mouse_x, mouse_y):
-                    if current_menu == 2:
-                        current_menu = -1
-                    else:
-                        current_menu = 2
-                    current_submenu = -1
-                elif generators_icon_rect.collidepoint(mouse_x, mouse_y):
-                    if current_menu == 3:
-                        current_menu = -1
-                    else:
-                        current_menu = 3
-                    current_submenu = -1
-                elif rotators_icon_rect.collidepoint(mouse_x, mouse_y):
-                    if current_menu == 4:
-                        current_menu = -1
-                    else:
-                        current_menu = 4
-                    current_submenu = -1
-                elif forcers_icon_rect.collidepoint(mouse_x, mouse_y):
-                    if current_menu == 5:
-                        current_menu = -1
-                    else:
-                        current_menu = 5
-                    current_submenu = -1
-                elif divergers_icon_rect.collidepoint(mouse_x, mouse_y):
-                    if current_menu == 6:
-                        current_menu = -1
-                    else:
-                        current_menu = 6
-                    current_submenu = -1
-                elif destroyers_icon_rect.collidepoint(mouse_x, mouse_y):
-                    if current_menu == 7:
-                        current_menu = -1
-                    else:
-                        current_menu = 7
-                    current_submenu = -1
-                elif misc_icon_rect.collidepoint(mouse_x, mouse_y):
-                    if current_menu == 9:
-                        current_menu = -1
-                    else:
-                        current_menu = 9
-                    current_submenu = -1
-                
-                elif play_button.rect.collidepoint(mouse_x, mouse_y):
-                    paused = not paused
-                elif step_button.rect.collidepoint(mouse_x, mouse_y):
-                    tick()
-                elif reset_button.rect.collidepoint(mouse_x, mouse_y):
-                    beep.play()
-                    reset()
-                elif initial_button.rect.collidepoint(mouse_x, mouse_y):
-                    beep.play()
-                    set_initial()
-                elif zoomin_button.rect.collidepoint(mouse_x, mouse_y):
-                    scroll_up(WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
-                elif zoomout_button.rect.collidepoint(mouse_x, mouse_y):
-                    scroll_down(WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
+                if selecting and event.dict["button"] == 1 and True not in all_buttons:
+                    select_end = (world_mouse_tile_x, world_mouse_tile_y)
+                else:
+                    if tools_icon_rect.collidepoint(mouse_x, mouse_y):
+                        brush = 0
+                    elif basic_icon_rect.collidepoint(mouse_x, mouse_y):
+                        if current_menu == 1:
+                            current_menu = -1
+                        else:
+                            current_menu = 1
+                        current_submenu = -1
+                    elif movers_icon_rect.collidepoint(mouse_x, mouse_y):
+                        if current_menu == 2:
+                            current_menu = -1
+                        else:
+                            current_menu = 2
+                        current_submenu = -1
+                    elif generators_icon_rect.collidepoint(mouse_x, mouse_y):
+                        if current_menu == 3:
+                            current_menu = -1
+                        else:
+                            current_menu = 3
+                        current_submenu = -1
+                    elif rotators_icon_rect.collidepoint(mouse_x, mouse_y):
+                        if current_menu == 4:
+                            current_menu = -1
+                        else:
+                            current_menu = 4
+                        current_submenu = -1
+                    elif forcers_icon_rect.collidepoint(mouse_x, mouse_y):
+                        if current_menu == 5:
+                            current_menu = -1
+                        else:
+                            current_menu = 5
+                        current_submenu = -1
+                    elif divergers_icon_rect.collidepoint(mouse_x, mouse_y):
+                        if current_menu == 6:
+                            current_menu = -1
+                        else:
+                            current_menu = 6
+                        current_submenu = -1
+                    elif destroyers_icon_rect.collidepoint(mouse_x, mouse_y):
+                        if current_menu == 7:
+                            current_menu = -1
+                        else:
+                            current_menu = 7
+                        current_submenu = -1
+                    elif misc_icon_rect.collidepoint(mouse_x, mouse_y):
+                        if current_menu == 9:
+                            current_menu = -1
+                        else:
+                            current_menu = 9
+                        current_submenu = -1
+                    
+                    elif play_button.rect.collidepoint(mouse_x, mouse_y):
+                        paused = not paused
+                    elif step_button.rect.collidepoint(mouse_x, mouse_y):
+                        tick()
+                    elif reset_button.rect.collidepoint(mouse_x, mouse_y):
+                        beep.play()
+                        reset()
+                    elif initial_button.rect.collidepoint(mouse_x, mouse_y):
+                        beep.play()
+                        set_initial()
+                    elif zoomin_button.rect.collidepoint(mouse_x, mouse_y):
+                        scroll_up(WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
+                    elif zoomout_button.rect.collidepoint(mouse_x, mouse_y):
+                        scroll_down(WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
+                    elif eraser_button.rect.collidepoint(mouse_x, mouse_y):
+                        brush = 0
+                    elif select_button.rect.collidepoint(mouse_x, mouse_y):
+                        selecting = not selecting
+                        if not selecting:
+                            select_start = None
+                            select_end = None
+                    elif delete_button.rect.collidepoint(mouse_x, mouse_y):
+                        if selecting and select_start != None and select_end != None:
+                            delete_selected()
 
-                elif menu_button.rect.collidepoint(mouse_x, mouse_y):
-                    menu_on = not menu_on
-                elif continue_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
-                    menu_on = False
-                    beep.play()
-                elif exit_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
-                    beep.play()
-                    screen = "title"
+                    elif menu_button.rect.collidepoint(mouse_x, mouse_y):
+                        menu_on = not menu_on
+                    elif continue_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                        menu_on = False
+                        beep.play()
+                    elif exit_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                        beep.play()
+                        screen = "title"
 
-                elif menu_reset_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
-                    beep.play()
-                    reset()
+                    elif menu_reset_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                        beep.play()
+                        reset()
 
-                elif clear_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
-                    beep.play()
-                    trash()
+                    elif clear_button.rect.collidepoint(mouse_x, mouse_y) and menu_on:
+                        beep.play()
+                        trash()
 
-                if event.dict["button"] == 2:
-                    picked_cell = get_cell(world_mouse_tile_x, world_mouse_tile_y)
-                    brush = picked_cell.id
-                    brush_dir = picked_cell.dir
+                    if event.dict["button"] == 2:
+                        picked_cell = get_cell(world_mouse_tile_x, world_mouse_tile_y)
+                        brush = picked_cell.id
+                        brush_dir = picked_cell.dir
 
-                for button in toolbar_subicons:
-                    button.update(mouse_buttons, mouse_x, mouse_y, brush, current_menu, current_submenu)
-                for button in toolbar_subcategories.values():
-                    button.handle_click(mouse_buttons, mouse_x, mouse_y, brush, current_menu)
+                    for button in toolbar_subicons:
+                        button.update(mouse_buttons, mouse_x, mouse_y, brush, current_menu, current_submenu)
+                    for button in toolbar_subcategories.values():
+                        button.handle_click(mouse_buttons, mouse_x, mouse_y, brush, current_menu)
+            else:
+                if mouse_buttons[0]:
+                    select_end = (world_mouse_tile_x, world_mouse_tile_y)
 
 
 
@@ -738,6 +802,14 @@ while running:
                         tick()
                         update_timer = step_speed
                     paused = not paused
+                if event.dict["key"] == pygame.K_TAB:
+                    selecting = not selecting
+                    if not selecting:
+                        select_start = None
+                        select_end = None
+                if event.dict["key"] == pygame.K_BACKSPACE:
+                    if selecting:
+                        delete_selected()
 
 
 
@@ -782,11 +854,15 @@ while running:
             suppress_place = False
 
         # Place tiles if possible
-        if mouse_y < WINDOW_HEIGHT - 54 and not suppress_place:       
-            if mouse_buttons[0]:
-                place_cell(world_mouse_tile_x, world_mouse_tile_y, brush, brush_dir)
-            if mouse_buttons[2]:
-                place_cell(world_mouse_tile_x, world_mouse_tile_y, 0, 0)
+        if not selecting:
+            if mouse_y < WINDOW_HEIGHT - 54 and not suppress_place:       
+                if mouse_buttons[0]:
+                    if "placeable" in str(brush):
+                        place_cell(world_mouse_tile_x, world_mouse_tile_y, brush, brush_dir, below)
+                    else:
+                        place_cell(world_mouse_tile_x, world_mouse_tile_y, brush, brush_dir, cell_map)
+                if mouse_buttons[2]:
+                    place_cell(world_mouse_tile_x, world_mouse_tile_y, 0, 0, cell_map)
         
         # Reset background
         window.fill(BACKGROUND, window.get_rect())
@@ -805,15 +881,21 @@ while running:
 
         draw()
         
+        if selecting and select_start != None and select_end != None:
+            s = pygame.Surface((abs(select_end[0]-select_start[0])*TILE_SIZE+TILE_SIZE, abs(select_end[1]-select_start[1])*TILE_SIZE+TILE_SIZE), pygame.SRCALPHA)
+            s.set_alpha(64)
+            s.fill((255, 255, 255))
+            window.blit(s, (min(select_start[0]*TILE_SIZE-cam_x, select_end[0]*TILE_SIZE-cam_x), min(select_start[1]*TILE_SIZE-cam_y, select_end[1]*TILE_SIZE-cam_y)))
+            #pygame.draw.rect(window, (255, 255, 255, 128), pygame.rect.Rect(min(select_start[0]*TILE_SIZE-cam_x, select_end[0]*TILE_SIZE-cam_x), min(select_start[1]*TILE_SIZE-cam_y, select_end[1]*TILE_SIZE-cam_y), abs(select_end[0]-select_start[0])*TILE_SIZE+TILE_SIZE, abs(select_end[1]-select_start[1])*TILE_SIZE+TILE_SIZE))
 
-
-        # Draw brush image
-        brush_image = cell_images[brush].convert_alpha()
-        alpha_img = pygame.Surface(brush_image.get_rect().size, pygame.SRCALPHA)
-        alpha_img.fill((255, 255, 255, 255*0.25)) # type: ignore
-        brush_image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        if True not in all_buttons:
-            window.blit(pygame.transform.rotate(pygame.transform.scale(brush_image, (TILE_SIZE, TILE_SIZE)), -90*brush_dir), (world_mouse_tile_x*TILE_SIZE-cam_x, world_mouse_tile_y*TILE_SIZE-cam_y))
+        if not selecting:
+            # Draw brush image
+            brush_image = cell_images[brush].convert_alpha()
+            alpha_img = pygame.Surface(brush_image.get_rect().size, pygame.SRCALPHA)
+            alpha_img.fill((255, 255, 255, 255*0.25)) # type: ignore
+            brush_image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            if True not in all_buttons:
+                window.blit(pygame.transform.rotate(pygame.transform.scale(brush_image, (TILE_SIZE, TILE_SIZE)), -90*brush_dir), (world_mouse_tile_x*TILE_SIZE-cam_x, world_mouse_tile_y*TILE_SIZE-cam_y))
 
         # Draw bottom toolbar
         pygame.draw.rect(window, (60, 60, 60), pygame.Rect(-10, WINDOW_HEIGHT-TOOLBAR_HEIGHT, WINDOW_WIDTH+20, TOOLBAR_HEIGHT+10))
@@ -856,9 +938,8 @@ while running:
         step_button.draw(window)       
         reset_button.draw(window)       
         initial_button.draw(window)       
-        menu_button.draw(window)
-        zoomin_button.draw(window)
-        zoomout_button.draw(window)
+        for i in topleft_button_group:
+            i.draw(window)
 
         title_rect.midtop = (WINDOW_WIDTH//2, menu_bg_rect.top + 10)
         menu_bg_rect.center = (WINDOW_WIDTH//2, WINDOW_HEIGHT//2)

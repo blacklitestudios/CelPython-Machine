@@ -1298,7 +1298,7 @@ class CelPython:
 
             cell = Cell(self, cellindex % self.grid_width, cellindex // self.grid_width, cellid, cellrot)
             cell.set_vars(vars)
-            cell.layer = {0: self.cell_map, 1: self.above, 83: self.below}[layer]
+            cell.layer = {0: self.cell_map, 1: self.above, -1: self.below}[layer]
 
             
 

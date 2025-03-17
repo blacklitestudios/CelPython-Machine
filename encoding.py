@@ -1,6 +1,4 @@
 import math
-import base64
-import zlib
 
 raw = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!$%&+-.=?^{}/#_*':,@~|"
 cheatsheet = {}
@@ -51,6 +49,8 @@ def unbase84(origvalue):
 		result = result + reverse_cheatsheet[origvalue[i-1]] * mult
 
 	return result*(-1 if neg else 1)
+
+#print(base64.b64encode(zlib.compress("]<placeable<0]<placeable<0]<placeable<00000]<placeable<0]<placeable<8]<placeable<00000]<placeable<0]<placeable<0]<placeable<000Q0]<placeable<0]<placeable<0]<placeable<00000]<placeable<0]<placeable<0]<placeable<00000".encode())).decode())
 
 
 

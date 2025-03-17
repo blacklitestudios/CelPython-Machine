@@ -113,6 +113,7 @@ class Button(pygame.sprite.Sprite):
                 self.brightness = 1
             self.alpha = 1
         else:
+            self.brightness = 1
             self.alpha = 0.5
 
     def draw(self, window):

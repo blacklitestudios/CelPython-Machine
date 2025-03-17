@@ -1166,30 +1166,17 @@ class Cell(pygame.sprite.Sprite):
             affected_cells = [row[0]]
             old_x: int = self.tile_x
             old_y: int = self.tile_y
-            new_x: int = 0
-            new_y: int = 0
-            new_dir: int = 0
 
-            #if move:
-            new_x, new_y, new_dir, _, b = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir, displace=True)
+            fx, fy, fdir, _, ppp = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir)                       
 
-            fx, fy, fdir, _, ppp = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir)
-
-
-                        
-
-
-            #print(self.tile_x, self.tile_y, fx, fy)
             if (fx, fy) in cell_map.keys():
                 cell = cell_map[fx, fy]
                 if cell.get_side((dir+fdir+2)) in ["wall", "undirectional"]:
-                    #print("flase")
                     return False
                 if cell.get_side((dir+2)) in ["forker", "triforker", "cwforker", "ccwforker", "trash", "divider", "tridivider", "cwdivider", "ccwdivider"]:
                     trash_flag = True
                 if "enemy" in cell.get_side((dir+fdir+2)):
                     enemy_flag = True
-            con_dir = ppp
             x = fx
             y = fy
             cell = self
@@ -1204,35 +1191,19 @@ class Cell(pygame.sprite.Sprite):
             
             row = affected_cells[:]
 
-            
+            if enemy_flag and not move:
+                cell = cell_map[fx, fy]
+                subtract_hp = min(cell.hp, hp)
+                cell.hp -= subtract_hp
+                cell_map[fx, fy].check_hp()
+                hp -= subtract_hp
             
             temp: list[Cell] = []
             for x, y, _, _, _ in row[1:]:
                 temp.append(cell_map[(x, y)])
-            '''for cell in temp:
-                if (cell.tile_x, cell.tile_y) in cell_map.keys():
-                    del cell_map[cell.tile_x, cell.tile_y]'''
 
-
-            if False:
-                for i, item in enumerate(row[1:]):
-                    
-                    dx, dy = deltas[i+1]
-                    ddir = ddirs[i+1]
-                    cell_map[(item[0]+dx, item[1]+dy)] = temp[i]
-                    #if temp[i].dir == dir - 
-                    temp[i].tile_x += dx
-                    temp[i].tile_y += dy
-                    temp[i].rot(ddirs[i+1])
-                    #temp[i].dir %= 4
-                    temp[i].on_force(item[4], temp[i-1])
-            else:
-                pass
-            #if move:
-                #del cell_map[(self.tile_x, self.tile_y)]
-            qir = False # random variable name
             if (fx, fy) in cell_map.keys() and not trash_flag and not enemy_flag:
-                #if (new_x, new_y) != (self.tile_x, self.tile_y):
+
                 try:
                     result = cell_map[fx, fy].push(dir+fdir, True, force=math.inf, speed=speed, test=test, active=False)
                     if not result:
@@ -1251,7 +1222,7 @@ class Cell(pygame.sprite.Sprite):
                 if move and not test:
                     if not self.nudge(dir, True):
                         return False
-            #cell_map[(self.tile_x, self.tile_y)] = self
+
             if killer_cell is not None:
                 return hp-killer_cell_hp
             else:
@@ -1504,16 +1475,14 @@ class Cell(pygame.sprite.Sprite):
         # Just create new cells if you have to
         # Cells have already been pushed
         # Just create new cells if you have to
-        if not self.push(dir, False, force=1):
+        if not (hp := self.push(dir, False, force=1, hp = generated_cell.hp)):
             return
         if (self.tile_x + dx, self.tile_y + dy) not in cell_map.keys():
             generated_cell.hp = 1
             generated_cell.old_x = self.tile_x
             generated_cell.old_y = self.tile_y
-            if generated_cell.hp == 1 and generated_cell.id == 24:
-                generated_cell.set_id(13)
-            if generated_cell.hp == 0:
-                return True
+            generated_cell.hp = hp
+            generated_cell.check_hp()
 
             if cell.generation != 'normal':
                 cell.generation -= 1

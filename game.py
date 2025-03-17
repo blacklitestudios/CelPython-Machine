@@ -765,629 +765,6 @@ class CelPython:
             self.cam_x = self.cam_x/2 - x/2
             self.cam_y = self.cam_y/2 - y/2
 
-    def update_game(self, events, keys, mouse_buttons, mouse_x, mouse_y):
-        paste_falg = False
-        continue_falg = False
-
-
-        
-        for event in events:
-            if self.menu_on and not self.builtin_puzzle:
-                self.width_box.handle_event(event)
-                #if self.menu_on:
-                self.height_box.handle_event(event)
-            if event.type == pygame.MOUSEWHEEL:
-                # Player is scrolling
-                if event.dict["y"] == -1:
-                    # Scrolling down
-                    self.scroll_down(mouse_x, mouse_y)
-                if event.dict["y"] == 1:
-                    # Scrolling up
-                    self.scroll_up(mouse_x, mouse_y)
-            
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                #print("F")
-                    
-                if self.selecting and event.dict["button"] == 1 and True not in self.all_buttons:
-                    self.select_start = (self.world_mouse_tile_x, self.world_mouse_tile_y)
-                    self.select_end = (self.world_mouse_tile_x, self.world_mouse_tile_y)
-                if self.puzzlemode and self.tick_number == 0:
-                    if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
-                        if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.below.keys():
-                            if "placeable" in self.below[self.world_mouse_tile_x, self.world_mouse_tile_y].id:
-                                self.selected_cell = self.cell_map[self.world_mouse_tile_x, self.world_mouse_tile_y]
-                                self.set_initial()
-                                
-                                
-
-                            
-                
-
-            if event.type == pygame.MOUSEBUTTONUP:
-                if self.selected_cell is not None:
-                    if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.below.keys():
-                        if "placeable" in self.below[self.world_mouse_tile_x, self.world_mouse_tile_y].id:
-                            del self.cell_map[self.selected_cell.tile_x, self.selected_cell.tile_y]
-                            if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
-                                self.cell_map[self.selected_cell.tile_x, self.selected_cell.tile_y] = self.cell_map[self.world_mouse_tile_x, self.world_mouse_tile_y]
-                                self.cell_map[self.selected_cell.tile_x, self.selected_cell.tile_y].tile_x = self.selected_cell.tile_x
-                                self.cell_map[self.selected_cell.tile_x, self.selected_cell.tile_y].tile_y = self.selected_cell.tile_y
-                            self.cell_map[self.world_mouse_tile_x, self.world_mouse_tile_y] = self.selected_cell
-                            self.selected_cell.tile_x = self.world_mouse_tile_x
-                            self.selected_cell.tile_y = self.world_mouse_tile_y
-                            self.set_initial()
-                    self.selected_cell = None
-                    
-                if True:
-                    #print(True not in self.all_buttons)
-                    if self.selecting and event.dict["button"] == 1 and True not in self.all_buttons:
-                        self.select_end = (self.world_mouse_tile_x, self.world_mouse_tile_y)
-
-                    if self.show_clipboard and event.dict["button"] == 1:
-                        for pos, cell in zip(self.clipboard.keys(), self.clipboard.values()):
-                            self.place_cell(self.world_mouse_tile_x + pos[0], self.world_mouse_tile_y + pos[1], cell.id, cell.dir, self.cell_map)
-                        self.show_clipboard = False
-                        self.all_buttons.append(True)
-                        paste_falg = True
-                    if True:
-                        if not self.puzzlemode:
-                            if self.tools_icon_rect.collidepoint(mouse_x, mouse_y):
-                                self.brush = 0
-                            elif self.basic_icon_rect.collidepoint(mouse_x, mouse_y):
-                                if self.current_menu == 1:
-                                    self.current_menu = -1
-                                else:
-                                    self.current_menu = 1
-                                self.current_submenu = -1
-                            elif self.movers_icon_rect.collidepoint(mouse_x, mouse_y):
-                                if self.current_menu == 2:
-                                    self.current_menu = -1
-                                else:
-                                    self.current_menu = 2
-                                self.current_submenu = -1
-                            elif self.generators_icon_rect.collidepoint(mouse_x, mouse_y):
-                                if self.current_menu == 3:
-                                    self.current_menu = -1
-                                else:
-                                    self.current_menu = 3
-                                self.current_submenu = -1
-                            elif self.rotators_icon_rect.collidepoint(mouse_x, mouse_y):
-                                if self.current_menu == 4:
-                                    self.current_menu = -1
-                                else:
-                                    self.current_menu = 4
-                                self.current_submenu = -1
-                            elif self.forcers_icon_rect.collidepoint(mouse_x, mouse_y):
-                                if self.current_menu == 5:
-                                    self.current_menu = -1
-                                else:
-                                    self.current_menu = 5
-                                self.current_submenu = -1
-                            elif self.divergers_icon_rect.collidepoint(mouse_x, mouse_y):
-                                if self.current_menu == 6:
-                                    self.current_menu = -1
-                                else:
-                                    self.current_menu = 6
-                                self.current_submenu = -1
-                            elif self.destroyers_icon_rect.collidepoint(mouse_x, mouse_y):
-                                if self.current_menu == 7:
-                                    self.current_menu = -1
-                                else:
-                                    self.current_menu = 7
-                                self.current_submenu = -1
-                            elif self.misc_icon_rect.collidepoint(mouse_x, mouse_y):
-                                if self.current_menu == 9:
-                                    self.current_menu = -1
-                                else:
-                                    self.current_menu = 9
-                                self.current_submenu = -1
-                        
-                        if self.play_button.rect.collidepoint(mouse_x, mouse_y):
-                            self.paused = not self.paused
-                        elif self.step_button.rect.collidepoint(mouse_x, mouse_y):
-                            if not self.puzzlemode:
-                                self.reset_old_values()
-                                self.tick()
-                        elif self.reset_button.rect.collidepoint(mouse_x, mouse_y):
-                            self.beep.play()
-                            self.reset()
-                        elif self.initial_button.rect.collidepoint(mouse_x, mouse_y):
-                            if not self.puzzlemode:
-                                self.beep.play()
-                                self.set_initial()
-                        elif self.zoomin_button.rect.collidepoint(mouse_x, mouse_y):
-                            self.scroll_up(self.window_width//2, self.window_height//2)
-                        elif self.zoomout_button.rect.collidepoint(mouse_x, mouse_y):
-                            self.scroll_down(self.window_width//2, self.window_height//2)
-                        if not self.builtin_puzzle:
-                            if self.eraser_button.rect.collidepoint(mouse_x, mouse_y):
-                                self.brush = 0
-                            elif self.copy_button.rect.collidepoint(mouse_x, mouse_y):
-                                #print("copy")
-                                self.copy_selected()
-                            elif self.paste_button.rect.collidepoint(mouse_x, mouse_y):
-                                self.show_clipboard = not self.show_clipboard
-                            elif self.select_button.rect.collidepoint(mouse_x, mouse_y):
-                                self.selecting = not self.selecting
-                                if not self.selecting:
-                                    self.select_start = None
-                                    self.select_end = None
-                                self.show_clipboard = False
-                            elif self.delete_button.rect.collidepoint(mouse_x, mouse_y):
-                                if self.selecting and self.select_start != None and self.select_end != None:
-                                    self.delete_selected()
-                        if self.menu_button.rect.collidepoint(mouse_x, mouse_y) and not self.result:
-                            self.menu_on = not self.menu_on
-                        if self.menu_on and not self.result:
-
-
-                            if self.continue_button.rect.collidepoint(mouse_x, mouse_y):
-                                self.menu_on = False
-                                self.all_buttons.append(True)
-                                continue_falg = True
-                                self.beep.play()
-                            elif self.exit_button.rect.collidepoint(mouse_x, mouse_y):
-                                self.beep.play()
-                                self.screen = "title"
-
-                            elif self.menu_reset_button.rect.collidepoint(mouse_x, mouse_y):
-                                self.beep.play()
-                                self.reset()
-
-                            elif self.clear_button.rect.collidepoint(mouse_x, mouse_y) and not self.builtin_puzzle:
-                                self.beep.play()
-                                self.trash()
-
-                            elif self.save_button.rect.collidepoint(mouse_x, mouse_y) and not self.builtin_puzzle:
-                                self.save_map()
-
-                            elif self.load_button.rect.collidepoint(mouse_x, mouse_y) and not self.builtin_puzzle:
-                                self.puzzlemode = False
-                                self.load_map()
-
-                            elif self.puzzle_button.rect.collidepoint(mouse_x, mouse_y) and not self.builtin_puzzle:
-                                self.puzzlemode = True
-                                self.load_map()
-                                self.selecting = False
-                                self.show_clipboard = False
-                                self.current_menu = -1
-                                self.current_submenu = -1
-                                self.brush = 0
-                        elif self.menu_on and self.result:
-                            if self.result_back_button.rect.collidepoint(mouse_x, mouse_y):
-                                self.screen = "puzzles"
-                            elif self.result_reset_button.rect.collidepoint(mouse_x, mouse_y):
-                                self.reset()
-                            elif self.continue_button.rect.collidepoint(mouse_x, mouse_y):
-                                pass
-
-
-                        if event.dict["button"] == 2:
-                            picked_cell = self.get_cell(self.world_mouse_tile_x, self.world_mouse_tile_y)
-                            self.brush = picked_cell.id
-                            self.brush_dir = picked_cell.dir
-
-                        for button in self.toolbar_subicons:
-                            button.update(mouse_buttons, mouse_x, mouse_y, self.brush, self.current_menu, self.current_submenu)
-                        for button in self.toolbar_subcategories.values():
-                            button.handle_click(mouse_buttons, mouse_x, mouse_y, self.brush, self.current_menu)
-
-
-                
-
-
-
-                    
-            
-            if event.type == pygame.KEYDOWN:
-                if event.dict["key"] == pygame.K_q:
-                    self.brush_dir -= 1
-                    self.brush_dir = self.brush_dir % 4
-                if event.dict["key"] == pygame.K_e:
-                    self.brush_dir += 1
-                    self.brush_dir = self.brush_dir % 4
-
-                if event.dict["key"] == pygame.K_f:
-                    self.reset_old_values()
-                    self.tick()
-                    self.stepping = True
-                    self.update_timer = self.step_speed
-
-                if event.dict["key"] == pygame.K_t:
-                    if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
-                        self.save_map()
-                
-                if event.dict["key"] == pygame.K_3:
-                    #if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
-                        self.load_map()
-                
-                if event.dict["key"] == pygame.K_r:
-                    if keys[pygame.K_LCTRL] or keys[ pygame.K_LMETA]:
-                        self.beep.play()
-                        self.reset()
-                if event.dict["key"] == pygame.K_c:
-                    if keys[pygame.K_LCTRL] or keys[pygame.K_LMETA]:
-                        self.copy_selected()
-                if event.dict["key"] == pygame.K_v:
-                    if keys[pygame.K_LCTRL] or keys[pygame.K_LMETA]:
-                        self.show_clipboard = not self.show_clipboard
-
-                if event.dict["key"] == pygame.K_ESCAPE:
-                    self.menu_on = not self.menu_on
-
-                if event.dict["key"] == pygame.K_SPACE:
-                    if self.paused:
-                        self.reset_old_values()
-                        for _ in range(self.tpu):
-                            self.tick()
-                        self.update_timer = self.step_speed
-                    self.paused = not self.paused
-                if event.dict["key"] == pygame.K_TAB:
-                    self.selecting = not self.selecting
-                    if not self.selecting:
-                        self.select_start = None
-                        self.select_end = None
-                    self.show_clipboard = False
-                if event.dict["key"] == pygame.K_BACKSPACE:
-                    if self.selecting:
-                        self.delete_selected()
-
-        if True:
-            if mouse_buttons[0]:
-                self.select_end = (self.world_mouse_tile_x, self.world_mouse_tile_y)
-
-
-
-        # Press CTRL to speed up scrolling
-        if keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]:
-            scroll_speed = 500
-        else:
-            scroll_speed = 250
-        
-        # WASD to move the camera
-        if keys[pygame.K_w] or keys[pygame.K_UP]:
-            self.cam_y -= scroll_speed*self.dt
-        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            self.cam_x -= scroll_speed*self.dt
-        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            self.cam_y += scroll_speed*self.dt
-        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            self.cam_x += scroll_speed*self.dt
-
-
-
-        self.world_mouse_x = mouse_x + self.cam_x
-        self.world_mouse_y = mouse_y + self.cam_y
-        self.world_mouse_tile_x = int(self.world_mouse_x//self.tile_size)
-        self.world_mouse_tile_y = int(self.world_mouse_y//self.tile_size)
-
-        self.step_button.rect.topright =(self.window_width - 70, 20)
-        self.play_button.rect.topright = (self.window_width - 20, 20)
-        self.pause_button.rect.topright = (self.window_width - 20, 20)
-        self.reset_button.rect.topright = (self.window_width - 20, 70)
-        self.initial_button.rect.topright = (self.window_width - 70, 70)
-
-        self.continue_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
-        self.menu_reset_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*1, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
-        self.clear_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*2, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
-        self.save_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*3, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
-        self.load_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*4, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
-        self.puzzle_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*5, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
-        self.exit_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*6, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
-
-        self.all_buttons = []
-        self.step_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.reset_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.initial_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        for i in self.topleft_button_group:
-            i.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        if self.selecting:
-            self.select_button.tint = (128, 255, 128)
-        else:
-            self.select_button.tint = (255, 255, 255)
-        self.continue_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.exit_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.menu_reset_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.clear_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.save_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.load_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.puzzle_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-
-        
-
-
-
-
-        # Check for a press suppression
-        button: MenuSubItem
-        for button in self.toolbar_subicons:
-            self.all_buttons.append(button.update(mouse_buttons, mouse_x, mouse_y, self.brush, self.current_menu, self.current_submenu))
-        for button in self.toolbar_subcategories.values():
-            self.all_buttons.append(button.update(mouse_buttons, mouse_x, mouse_y, self.brush, self.current_menu))
-
-        if True in self.all_buttons:
-            self.suppress_place = True
-        else:
-            self.suppress_place = False
-
-        # Place tiles if possible
-        if not self.selecting and not self.show_clipboard and not paste_falg and not continue_falg and not self.puzzlemode:
-            if mouse_y < self.window_height - 54 and not self.suppress_place and not (self.menu_on and self.menu_bg_rect.collidepoint(mouse_x, mouse_y)):       
-                if mouse_buttons[0]:
-                    if "placeable" in str(self.brush) or "bg" == str(self.brush)[:2]:
-                        self.place_cell(self.world_mouse_tile_x, self.world_mouse_tile_y, self.brush, self.brush_dir, self.below)
-                    else:
-                        self.place_cell(self.world_mouse_tile_x, self.world_mouse_tile_y, self.brush, self.brush_dir, self.cell_map)
-                if mouse_buttons[2]:
-                    self.place_cell(self.world_mouse_tile_x, self.world_mouse_tile_y, 0, 0, self.cell_map)
-
-        
-        # Reset background
-        self.window.fill(self.BACKGROUND, self.window.get_rect())
-
-        # Get border tile image
-        border_image = cell_images[self.border_tile]
-
-        i: int
-        j: int
-        for i in range(self.grid_width):
-            for j in range(self.grid_height):
-                if not (self.tile_size*i-self.cam_x+self.tile_size < 0 or self.tile_size*i-self.cam_x > self.window_width or self.tile_size*j-self.cam_y+self.tile_size < 0 or self.tile_size*j-self.cam_y > self.window_height):
-                    if (i, j) not in self.below.keys():
-                        self.window.blit(self.get_bg(self.tile_size), (self.tile_size*i-self.cam_x, self.tile_size*j-self.cam_y))
-
-
-        self.draw()
-        
-        if self.selecting and self.select_start != None and self.select_end != None:
-            s = pygame.Surface((abs(self.select_end[0]-self.select_start[0])*self.tile_size+self.tile_size, abs(self.select_end[1]-self.select_start[1])*self.tile_size+self.tile_size), pygame.SRCALPHA)
-            s.set_alpha(64)
-            s.fill((255, 255, 255))
-            self.window.blit(s, (min(self.select_start[0]*self.tile_size-self.cam_x, self.select_end[0]*self.tile_size-self.cam_x), min(self.select_start[1]*self.tile_size-self.cam_y, self.select_end[1]*self.tile_size-self.cam_y)))
-        if self.show_clipboard and self.clipboard_start != None and self.clipboard_end != None:
-            s = pygame.Surface((abs(self.clipboard_end[0]-self.clipboard_start[0])*self.tile_size+self.tile_size, abs(self.clipboard_end[1]-self.clipboard_start[1])*self.tile_size+self.tile_size), pygame.SRCALPHA)
-            #print(self.clipboard)
-            tlcorner = (min((-self.clipboard_start[0]+self.world_mouse_tile_x), (-self.clipboard_end[0]+self.world_mouse_tile_x)), min((-self.clipboard_start[1]+self.world_mouse_tile_y), (-self.clipboard_end[1]+self.world_mouse_tile_y)))
-            anchor = (tlcorner[0] - self.world_mouse_tile_x, tlcorner[1] - self.world_mouse_tile_y)
-
-
-            s.fill((255, 255, 255, 128))
-            for key, tile in zip(self.clipboard.keys(), self.clipboard.values()):
-                s.blit(tile.loadscale(self.tile_size), ((key[0]-anchor[0])*self.tile_size, (key[1]-anchor[1])*self.tile_size))
-            s.set_alpha(128)
-
-            self.window.blit(s, (min((-self.clipboard_start[0]+self.world_mouse_tile_x)*self.tile_size-self.cam_x, (-self.clipboard_end[0]+self.world_mouse_tile_x)*self.tile_size-self.cam_x), min((-self.clipboard_start[1]+self.world_mouse_tile_y)*self.tile_size-self.cam_y, (-self.clipboard_end[1]+self.world_mouse_tile_y)*self.tile_size-self.cam_y)))
-
-
-        if not self.selecting and not self.show_clipboard and not self.puzzlemode:
-            # Draw brush image
-            brush_image = cell_images[self.brush].convert_alpha()
-            alpha_img = pygame.Surface(brush_image.get_rect().size, pygame.SRCALPHA)
-            alpha_img.fill((255, 255, 255, 255*0.25)) # type: ignore
-            brush_image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            if True not in self.all_buttons:
-                self.window.blit(pygame.transform.rotate(pygame.transform.scale(brush_image, (self.tile_size, self.tile_size)), -90*self.brush_dir), (self.world_mouse_tile_x*self.tile_size-self.cam_x, self.world_mouse_tile_y*self.tile_size-self.cam_y))
-
-        if not self.puzzlemode:
-            # Draw bottom toolbar
-            pygame.draw.rect(self.window, (60, 60, 60), pygame.Rect(-10, self.window_height-self.TOOLBAR_HEIGHT, self.window_width+20, self.TOOLBAR_HEIGHT+10))
-            pygame.draw.rect(self.window, (127, 127, 127), pygame.Rect(-10, self.window_height-self.TOOLBAR_HEIGHT, self.window_width+20, self.TOOLBAR_HEIGHT+10), 1)
-
-            # Update toolbar positions\
-            self.tools_icon_rect.midleft = (7, self.window_height - 27)
-            self.basic_icon_rect.midleft = (7+1*54, self.window_height - 27)
-            self.movers_icon_rect.midleft = (7+2*54, self.window_height - 27)
-            self.generators_icon_rect.midleft = (7+3*54, self.window_height - 27)
-            self.rotators_icon_rect.midleft = (7+4*54, self.window_height - 27)
-            self.forcers_icon_rect.midleft = (7+5*54, self.window_height - 27)
-            self.divergers_icon_rect.midleft = (7+6*54, self.window_height - 27)
-            self.destroyers_icon_rect.midleft = (7+7*54, self.window_height - 27)
-            self.misc_icon_rect.midleft = (7+9*54, self.window_height - 27)
-            # Blit toolbar icons
-            self.window.blit(pygame.transform.rotate(self.tools_icon_image, 0), self.tools_icon_rect)
-            self.window.blit(pygame.transform.rotate(self.basic_icon_image, -90*self.brush_dir), self.basic_icon_rect)
-            self.window.blit(pygame.transform.rotate(self.movers_icon_image, -90*self.brush_dir), self.movers_icon_rect)
-            self.window.blit(pygame.transform.rotate(self.generators_icon_image, -90*self.brush_dir), self.generators_icon_rect)
-            self.window.blit(pygame.transform.rotate(self.rotators_icon_image, -90*self.brush_dir), self.rotators_icon_rect)
-            self.window.blit(pygame.transform.rotate(self.forcers_icon_image, -90*self.brush_dir), self.forcers_icon_rect)
-            self.window.blit(pygame.transform.rotate(self.divergers_icon_image, -90*self.brush_dir), self.divergers_icon_rect)
-            self.window.blit(pygame.transform.rotate(self.destroyers_icon_image, -90*self.brush_dir), self.destroyers_icon_rect)
-            self.window.blit(pygame.transform.rotate(self.misc_icon_image, -90*self.brush_dir), self.misc_icon_rect)
-
-        for button in self.toolbar_subicons:
-            button.draw(self.window)
-        for button in self.toolbar_subcategories.values():
-            button.update(mouse_buttons, mouse_x, mouse_y, self.brush, self.current_menu)
-            button.draw(self.window)
-        if self.paused:
-            self.play_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-            self.play_button.draw(self.window)
-        else:
-            self.pause_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-            self.pause_button.draw(self.window)
-
-        
-        self.step_button.draw(self.window)       
-        self.reset_button.draw(self.window)      
-        if not self.puzzlemode: 
-            self.initial_button.draw(self.window)
-        if not self.puzzlemode:       
-            for i in self.topleft_button_group:
-                i.draw(self.window)
-        else:
-            self.menu_button.draw(self.window)
-            self.zoomin_button.draw(self.window)
-            self.zoomout_button.draw(self.window)
-
-        self.menu_bg_rect.center = (self.window_width//2, self.window_height//2)
-        
-
-        if self.menu_on:
-
-            self.window.blit(self.menu_bg, self.menu_bg_rect)
-            if not self.result:
-                self.continue_button.draw(self.window)
-
-                self.exit_button.draw(self.window)
-
-                self.menu_reset_button.draw(self.window)
-
-                if not self.builtin_puzzle:
-                    self.clear_button.draw(self.window)
-                    self.save_button.draw(self.window)
-                    self.load_button.draw(self.window)
-                    self.puzzle_button.draw(self.window)
-                self.tickspeed_slider.update()
-                self.step_speed = round(self.tickspeed_slider.value, 2)
-                self.tickspeed_slider.value = self.step_speed
-                self.tickspeed_slider.draw()
-                
-                self.tpu_slider.update()
-                self.tpu = math.floor(self.tpu_slider.value)
-                self.tpu_slider.value = self.tpu
-                self.tpu_slider.draw()
-
-                if not self.puzzlemode:
-                    temp = self.nokia(8).render("Width", True, (255, 255, 255))
-                    temp_rect = temp.get_rect()
-                    temp_rect.bottomleft = self.width_box.rect.topleft
-                    self.window.blit(temp, temp_rect)
-                    self.width_box.draw(self.window)
-
-                    temp = self.nokia(8).render("Height", True, (255, 255, 255))
-                    temp_rect = temp.get_rect()
-                    temp_rect.bottomleft = self.height_box.rect.topleft
-                    self.window.blit(temp, temp_rect)
-                    self.height_box.draw(self.window)
-
-
-
-                update_delay_text = self.nokia(8).render(f"Update delay: {self.step_speed}s", True, (255, 255, 255))
-                update_delay_rect = update_delay_text.get_rect()
-                update_delay_rect.bottomleft = (self.tickspeed_slider.x, self.tickspeed_slider.y)
-                self.window.blit(update_delay_text, update_delay_rect)
-
-                tpu_text = self.nokia(8).render(f"Ticks per update: {self.tpu}", True, (255, 255, 255))
-                tpu_rect = tpu_text.get_rect()
-                tpu_rect.bottomleft =self.tpu_slider.rect.topleft
-                self.window.blit(tpu_text, tpu_rect)
-
-            if self.result == "victory":
-                victory_text = self.nokia(32).render("Victory!", True, (255, 255, 255))
-                victory_rect = victory_text.get_rect()
-                victory_rect.midbottom = self.menu_bg_rect.center
-                self.window.blit(victory_text, victory_rect)
-                for button in [self.result_back_button, self.result_reset_button, self.result_continue_button]:
-                    button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-                    button.draw(self.window)
-
-    def update_title(self, events, keys, mouse_buttons, mouse_x, mouse_y):
-        # Event loop
-        #events = pygame.event.get()
-        for event in events:
-            if event.type == pygame.MOUSEBUTTONUP:
-                if mouse_buttons[0] and self.start_play_button.rect.collidepoint(event.pos[0], event.pos[1]):
-                    self.screen = "game"
-                    self.trash()
-                    self.menu_on = False
-                    self.tile_size = 20.0
-                    self.cam_x = 0
-                    self.cam_y = 0
-                    self.puzzlemode = False
-                    self.builtin_puzzle = False
-                    self.decode_K3(self.default)
-                if mouse_buttons[0] and self.puzzles_button.rect.collidepoint(event.pos[0], event.pos[1]):
-                    self.screen = "puzzles"
-                    self.menu_on = False
-                    self.tile_size = 20.0
-                    self.cam_x = 0
-                    self.cam_y = 0
-                    self.mouse_buttons = (0, 0, 0)
-                    events = []
-                
-                if mouse_buttons[0] and self.quit_button.rect.collidepoint(mouse_x, mouse_y):
-                    self.running = False
-        self.window.fill(self.BACKGROUND, self.window.get_rect())
-        #logo_image, _ = rot_center(logo_image, logo_rect, math.sin(t))
-        self.logo_rect.midbottom = (self.window_width//2, self.window_height//2)
-        self.window.blit(rot_center(self.logo_image, self.logo_rect, math.sin(self.t)*5)[0], rot_center(self.logo_image, self.logo_rect, math.sin(self.t)*5)[1])       
-
-        self.start_play_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.start_play_button.draw(self.window)
-
-        self.puzzles_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.puzzles_button.draw(self.window)
-
-        self.quit_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.quit_button.draw(self.window)
-
-        self.clock.tick()
-        self.dt = self.clock.get_time() / 1000
-        self.t+=self.dt
-        if not self.paused:
-            if self.dt > self.step_speed:
-                self.update_timer = 0
-            else:
-                self.update_timer -= self.dt
-            if self.update_timer <= 0:
-                self.update_timer += self.step_speed
-                if self.update_timer < 0:
-                    self.update_timer = 0
-                self.reset_old_values()
-                for _ in range(self.tpu):
-                    self.tick()
-        else:
-            if self.update_timer > 0:
-                self.update_timer -= self.dt
-            else:
-                self.update_timer = 0
-
-    def update_puzzles(self, events, keys, mouse_buttons, mouse_x, mouse_y):
-        self.window.fill(self.BACKGROUND, self.window.get_rect())
-        for event in events:
-            if event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1 and self.puzzles_back_button.rect.collidepoint(event.pos[0], event.pos[1]):
-                    self.screen = "title"
-                    self.menu_on = False
-                    self.tile_size = 20.0
-                    self.cam_x = 0
-                    self.cam_y = 0
-                for i, button in enumerate(self.puzzles_group):
-                    if mouse_buttons[0] and button.rect.collidepoint(event.pos[0], event.pos[1]):
-                        lcode = list(self.puzzles.values())[i+1]
-                        if lcode[:3] == "K3:":
-                            self.puzzlemode = True
-                            self.builtin_puzzle = True
-                            self.screen = "game"
-                            self.menu_on = False
-                            self.tile_size = 20.0
-                            self.cam_x = 0
-                            self.cam_y = 0
-                            self.set_initial()
-                            self.decode_K3(list(self.puzzles.values())[i+1])
-
-        self.puzzles_back_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-        self.puzzles_back_button.draw(self.window)
-
-        for button in self.puzzles_group:
-            button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
-            button.draw(self.window)
-
-        for i, button in enumerate(self.puzzles_group):
-            #difficulties = ["difficulty/"+i+".png" for i in ["", "easier", "easy", "medium", "hard", "harder", "extreme", "easiersuper", "easysuper", "mediumsuper", "hardsuper", "hardersuper", "extremesuper"]]
-
-            button.rect.topleft = (self.window_width//2 -300 + 50*((i)%10 + 1), self.window_height//2 - 100 + 50*((i)//10 + 1))
-            text = self.nokia(16).render(str(i+1), True, (255, 255, 255))
-            
-            text_rect = text.get_rect()
-            text_rect.center = button.rect.center
-            shadow_text = self.nokia(16).render(str(i+1), True, (0, 0, 0))
-            
-            shadow_text_rect = shadow_text.get_rect()
-            shadow_text_rect.center = (text_rect.center[0]+2, text_rect.center[1]+2)
-            self.window.blit(shadow_text, shadow_text_rect)
-            self.window.blit(text, text_rect)
-
     def update(self):
         #print(self.world_mouse_tile_x, self.world_mouse_tile_y)
         self.window_height = self.window.get_height()
@@ -1414,13 +791,639 @@ class CelPython:
                 self.running = False
 
         if self.screen == "game":
-            self.update_game(events, keys, mouse_buttons, mouse_x, mouse_y)
+            paste_falg = False
+            continue_falg = False
+
+
             
+            for event in events:
+                if self.menu_on and not self.builtin_puzzle:
+                    self.width_box.handle_event(event)
+                    #if self.menu_on:
+                    self.height_box.handle_event(event)
+                if event.type == pygame.MOUSEWHEEL:
+                    # Player is scrolling
+                    if event.dict["y"] == -1:
+                        # Scrolling down
+                        self.scroll_down(mouse_x, mouse_y)
+                    if event.dict["y"] == 1:
+                        # Scrolling up
+                        self.scroll_up(mouse_x, mouse_y)
+                
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    #print("F")
+                        
+                    if self.selecting and event.dict["button"] == 1 and True not in self.all_buttons:
+                        self.select_start = (self.world_mouse_tile_x, self.world_mouse_tile_y)
+                        self.select_end = (self.world_mouse_tile_x, self.world_mouse_tile_y)
+                    if self.puzzlemode and self.tick_number == 0:
+                        if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
+                            if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.below.keys():
+                                if "placeable" in self.below[self.world_mouse_tile_x, self.world_mouse_tile_y].id:
+                                    self.selected_cell = self.cell_map[self.world_mouse_tile_x, self.world_mouse_tile_y]
+                                    self.set_initial()
+                                    
+                                    
+
+                                
+                    
+
+                if event.type == pygame.MOUSEBUTTONUP:
+                    if self.selected_cell is not None:
+                        if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.below.keys():
+                            if "placeable" in self.below[self.world_mouse_tile_x, self.world_mouse_tile_y].id:
+                                del self.cell_map[self.selected_cell.tile_x, self.selected_cell.tile_y]
+                                if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
+                                    self.cell_map[self.selected_cell.tile_x, self.selected_cell.tile_y] = self.cell_map[self.world_mouse_tile_x, self.world_mouse_tile_y]
+                                    self.cell_map[self.selected_cell.tile_x, self.selected_cell.tile_y].tile_x = self.selected_cell.tile_x
+                                    self.cell_map[self.selected_cell.tile_x, self.selected_cell.tile_y].tile_y = self.selected_cell.tile_y
+                                self.cell_map[self.world_mouse_tile_x, self.world_mouse_tile_y] = self.selected_cell
+                                self.selected_cell.tile_x = self.world_mouse_tile_x
+                                self.selected_cell.tile_y = self.world_mouse_tile_y
+                                self.set_initial()
+                        self.selected_cell = None
+                        
+                    if True:
+                        #print(True not in self.all_buttons)
+                        if self.selecting and event.dict["button"] == 1 and True not in self.all_buttons:
+                            self.select_end = (self.world_mouse_tile_x, self.world_mouse_tile_y)
+
+                        if self.show_clipboard and event.dict["button"] == 1:
+                            for pos, cell in zip(self.clipboard.keys(), self.clipboard.values()):
+                                self.place_cell(self.world_mouse_tile_x + pos[0], self.world_mouse_tile_y + pos[1], cell.id, cell.dir, self.cell_map)
+                            self.show_clipboard = False
+                            self.all_buttons.append(True)
+                            paste_falg = True
+                        if True:
+                            if not self.puzzlemode:
+                                if self.tools_icon_rect.collidepoint(mouse_x, mouse_y):
+                                    self.brush = 0
+                                elif self.basic_icon_rect.collidepoint(mouse_x, mouse_y):
+                                    if self.current_menu == 1:
+                                        self.current_menu = -1
+                                    else:
+                                        self.current_menu = 1
+                                    self.current_submenu = -1
+                                elif self.movers_icon_rect.collidepoint(mouse_x, mouse_y):
+                                    if self.current_menu == 2:
+                                        self.current_menu = -1
+                                    else:
+                                        self.current_menu = 2
+                                    self.current_submenu = -1
+                                elif self.generators_icon_rect.collidepoint(mouse_x, mouse_y):
+                                    if self.current_menu == 3:
+                                        self.current_menu = -1
+                                    else:
+                                        self.current_menu = 3
+                                    self.current_submenu = -1
+                                elif self.rotators_icon_rect.collidepoint(mouse_x, mouse_y):
+                                    if self.current_menu == 4:
+                                        self.current_menu = -1
+                                    else:
+                                        self.current_menu = 4
+                                    self.current_submenu = -1
+                                elif self.forcers_icon_rect.collidepoint(mouse_x, mouse_y):
+                                    if self.current_menu == 5:
+                                        self.current_menu = -1
+                                    else:
+                                        self.current_menu = 5
+                                    self.current_submenu = -1
+                                elif self.divergers_icon_rect.collidepoint(mouse_x, mouse_y):
+                                    if self.current_menu == 6:
+                                        self.current_menu = -1
+                                    else:
+                                        self.current_menu = 6
+                                    self.current_submenu = -1
+                                elif self.destroyers_icon_rect.collidepoint(mouse_x, mouse_y):
+                                    if self.current_menu == 7:
+                                        self.current_menu = -1
+                                    else:
+                                        self.current_menu = 7
+                                    self.current_submenu = -1
+                                elif self.misc_icon_rect.collidepoint(mouse_x, mouse_y):
+                                    if self.current_menu == 9:
+                                        self.current_menu = -1
+                                    else:
+                                        self.current_menu = 9
+                                    self.current_submenu = -1
+                            
+                            if self.play_button.rect.collidepoint(mouse_x, mouse_y):
+                                self.paused = not self.paused
+                            elif self.step_button.rect.collidepoint(mouse_x, mouse_y):
+                                if not self.puzzlemode:
+                                    self.reset_old_values()
+                                    self.tick()
+                            elif self.reset_button.rect.collidepoint(mouse_x, mouse_y):
+                                self.beep.play()
+                                self.reset()
+                            elif self.initial_button.rect.collidepoint(mouse_x, mouse_y):
+                                if not self.puzzlemode:
+                                    self.beep.play()
+                                    self.set_initial()
+                            elif self.zoomin_button.rect.collidepoint(mouse_x, mouse_y):
+                                self.scroll_up(self.window_width//2, self.window_height//2)
+                            elif self.zoomout_button.rect.collidepoint(mouse_x, mouse_y):
+                                self.scroll_down(self.window_width//2, self.window_height//2)
+                            if not self.builtin_puzzle:
+                                if self.eraser_button.rect.collidepoint(mouse_x, mouse_y):
+                                    self.brush = 0
+                                elif self.copy_button.rect.collidepoint(mouse_x, mouse_y):
+                                    #print("copy")
+                                    self.copy_selected()
+                                elif self.paste_button.rect.collidepoint(mouse_x, mouse_y):
+                                    self.show_clipboard = not self.show_clipboard
+                                elif self.select_button.rect.collidepoint(mouse_x, mouse_y):
+                                    self.selecting = not self.selecting
+                                    if not self.selecting:
+                                        self.select_start = None
+                                        self.select_end = None
+                                    self.show_clipboard = False
+                                elif self.delete_button.rect.collidepoint(mouse_x, mouse_y):
+                                    if self.selecting and self.select_start != None and self.select_end != None:
+                                        self.delete_selected()
+                            if self.menu_button.rect.collidepoint(mouse_x, mouse_y) and not self.result:
+                                self.menu_on = not self.menu_on
+                            if self.menu_on and not self.result:
+
+
+                                if self.continue_button.rect.collidepoint(mouse_x, mouse_y):
+                                    self.menu_on = False
+                                    self.all_buttons.append(True)
+                                    continue_falg = True
+                                    self.beep.play()
+                                elif self.exit_button.rect.collidepoint(mouse_x, mouse_y):
+                                    self.beep.play()
+                                    self.screen = "title"
+
+                                elif self.menu_reset_button.rect.collidepoint(mouse_x, mouse_y):
+                                    self.beep.play()
+                                    self.reset()
+
+                                elif self.clear_button.rect.collidepoint(mouse_x, mouse_y) and not self.builtin_puzzle:
+                                    self.beep.play()
+                                    self.trash()
+
+                                elif self.save_button.rect.collidepoint(mouse_x, mouse_y) and not self.builtin_puzzle:
+                                    self.save_map()
+
+                                elif self.load_button.rect.collidepoint(mouse_x, mouse_y) and not self.builtin_puzzle:
+                                    self.puzzlemode = False
+                                    self.load_map()
+
+                                elif self.puzzle_button.rect.collidepoint(mouse_x, mouse_y) and not self.builtin_puzzle:
+                                    self.puzzlemode = True
+                                    self.load_map()
+                                    self.selecting = False
+                                    self.show_clipboard = False
+                                    self.current_menu = -1
+                                    self.current_submenu = -1
+                                    self.brush = 0
+                            elif self.menu_on and self.result:
+                                if self.result_back_button.rect.collidepoint(mouse_x, mouse_y):
+                                    self.screen = "puzzles"
+                                elif self.result_reset_button.rect.collidepoint(mouse_x, mouse_y):
+                                    self.reset()
+                                elif self.continue_button.rect.collidepoint(mouse_x, mouse_y):
+                                    pass
+
+
+                            if event.dict["button"] == 2:
+                                picked_cell = self.get_cell(self.world_mouse_tile_x, self.world_mouse_tile_y)
+                                self.brush = picked_cell.id
+                                self.brush_dir = picked_cell.dir
+
+                            for button in self.toolbar_subicons:
+                                button.update(mouse_buttons, mouse_x, mouse_y, self.brush, self.current_menu, self.current_submenu)
+                            for button in self.toolbar_subcategories.values():
+                                button.handle_click(mouse_buttons, mouse_x, mouse_y, self.brush, self.current_menu)
+
+
+                    
+
+
+
+                        
+                
+                if event.type == pygame.KEYDOWN:
+                    if event.dict["key"] == pygame.K_q:
+                        self.brush_dir -= 1
+                        self.brush_dir = self.brush_dir % 4
+                    if event.dict["key"] == pygame.K_e:
+                        self.brush_dir += 1
+                        self.brush_dir = self.brush_dir % 4
+
+                    if event.dict["key"] == pygame.K_f:
+                        self.reset_old_values()
+                        self.tick()
+                        self.stepping = True
+                        self.update_timer = self.step_speed
+
+                    if event.dict["key"] == pygame.K_t:
+                        if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
+                            self.save_map()
+                    
+                    if event.dict["key"] == pygame.K_3:
+                        #if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
+                            self.load_map()
+                    
+                    if event.dict["key"] == pygame.K_r:
+                        if keys[pygame.K_LCTRL] or keys[ pygame.K_LMETA]:
+                            self.beep.play()
+                            self.reset()
+                    if event.dict["key"] == pygame.K_c:
+                        if keys[pygame.K_LCTRL] or keys[pygame.K_LMETA]:
+                            self.copy_selected()
+                    if event.dict["key"] == pygame.K_v:
+                        if keys[pygame.K_LCTRL] or keys[pygame.K_LMETA]:
+                            self.show_clipboard = not self.show_clipboard
+
+                    if event.dict["key"] == pygame.K_ESCAPE:
+                        self.menu_on = not self.menu_on
+
+                    if event.dict["key"] == pygame.K_SPACE:
+                        if self.paused:
+                            self.reset_old_values()
+                            for _ in range(self.tpu):
+                                self.tick()
+                            self.update_timer = self.step_speed
+                        self.paused = not self.paused
+                    if event.dict["key"] == pygame.K_TAB:
+                        self.selecting = not self.selecting
+                        if not self.selecting:
+                            self.select_start = None
+                            self.select_end = None
+                        self.show_clipboard = False
+                    if event.dict["key"] == pygame.K_BACKSPACE:
+                        if self.selecting:
+                            self.delete_selected()
+
+            if True:
+                if mouse_buttons[0]:
+                    self.select_end = (self.world_mouse_tile_x, self.world_mouse_tile_y)
+
+
+
+            # Press CTRL to speed up scrolling
+            if keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]:
+                scroll_speed = 500
+            else:
+                scroll_speed = 250
+            
+            # WASD to move the camera
+            if keys[pygame.K_w] or keys[pygame.K_UP]:
+                self.cam_y -= scroll_speed*self.dt
+            if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+                self.cam_x -= scroll_speed*self.dt
+            if keys[pygame.K_s] or keys[pygame.K_DOWN]:
+                self.cam_y += scroll_speed*self.dt
+            if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+                self.cam_x += scroll_speed*self.dt
+
+
+
+            self.world_mouse_x = mouse_x + self.cam_x
+            self.world_mouse_y = mouse_y + self.cam_y
+            self.world_mouse_tile_x = int(self.world_mouse_x//self.tile_size)
+            self.world_mouse_tile_y = int(self.world_mouse_y//self.tile_size)
+
+            self.step_button.rect.topright =(self.window_width - 70, 20)
+            self.play_button.rect.topright = (self.window_width - 20, 20)
+            self.pause_button.rect.topright = (self.window_width - 20, 20)
+            self.reset_button.rect.topright = (self.window_width - 20, 70)
+            self.initial_button.rect.topright = (self.window_width - 70, 70)
+
+            self.continue_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
+            self.menu_reset_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*1, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
+            self.clear_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*2, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
+            self.save_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*3, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
+            self.load_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*4, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
+            self.puzzle_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*5, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
+            self.exit_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*6, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
+
+            self.all_buttons = []
+            self.step_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.reset_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.initial_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            for i in self.topleft_button_group:
+                i.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            if self.selecting:
+                self.select_button.tint = (128, 255, 128)
+            else:
+                self.select_button.tint = (255, 255, 255)
+            self.continue_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.exit_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.menu_reset_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.clear_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.save_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.load_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.puzzle_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+
+            
+
+
+
+
+            # Check for a press suppression
+            button: MenuSubItem
+            for button in self.toolbar_subicons:
+                self.all_buttons.append(button.update(mouse_buttons, mouse_x, mouse_y, self.brush, self.current_menu, self.current_submenu))
+            for button in self.toolbar_subcategories.values():
+                self.all_buttons.append(button.update(mouse_buttons, mouse_x, mouse_y, self.brush, self.current_menu))
+
+            if True in self.all_buttons:
+                self.suppress_place = True
+            else:
+                self.suppress_place = False
+
+            # Place tiles if possible
+            if not self.selecting and not self.show_clipboard and not paste_falg and not continue_falg and not self.puzzlemode:
+                if mouse_y < self.window_height - 54 and not self.suppress_place and not (self.menu_on and self.menu_bg_rect.collidepoint(mouse_x, mouse_y)):       
+                    if mouse_buttons[0]:
+                        if "placeable" in str(self.brush) or "bg" == str(self.brush)[:2]:
+                            self.place_cell(self.world_mouse_tile_x, self.world_mouse_tile_y, self.brush, self.brush_dir, self.below)
+                        else:
+                            self.place_cell(self.world_mouse_tile_x, self.world_mouse_tile_y, self.brush, self.brush_dir, self.cell_map)
+                    if mouse_buttons[2]:
+                        self.place_cell(self.world_mouse_tile_x, self.world_mouse_tile_y, 0, 0, self.cell_map)
+
+            
+            # Reset background
+            self.window.fill(self.BACKGROUND, self.window.get_rect())
+
+            # Get border tile image
+            border_image = cell_images[self.border_tile]
+
+            i: int
+            j: int
+            for i in range(self.grid_width):
+                for j in range(self.grid_height):
+                    if not (self.tile_size*i-self.cam_x+self.tile_size < 0 or self.tile_size*i-self.cam_x > self.window_width or self.tile_size*j-self.cam_y+self.tile_size < 0 or self.tile_size*j-self.cam_y > self.window_height):
+                        if (i, j) not in self.below.keys():
+                            self.window.blit(self.get_bg(self.tile_size), (self.tile_size*i-self.cam_x, self.tile_size*j-self.cam_y))
+
+
+            self.draw()
+            
+            if self.selecting and self.select_start != None and self.select_end != None:
+                s = pygame.Surface((abs(self.select_end[0]-self.select_start[0])*self.tile_size+self.tile_size, abs(self.select_end[1]-self.select_start[1])*self.tile_size+self.tile_size), pygame.SRCALPHA)
+                s.set_alpha(64)
+                s.fill((255, 255, 255))
+                self.window.blit(s, (min(self.select_start[0]*self.tile_size-self.cam_x, self.select_end[0]*self.tile_size-self.cam_x), min(self.select_start[1]*self.tile_size-self.cam_y, self.select_end[1]*self.tile_size-self.cam_y)))
+            if self.show_clipboard and self.clipboard_start != None and self.clipboard_end != None:
+                s = pygame.Surface((abs(self.clipboard_end[0]-self.clipboard_start[0])*self.tile_size+self.tile_size, abs(self.clipboard_end[1]-self.clipboard_start[1])*self.tile_size+self.tile_size), pygame.SRCALPHA)
+                #print(self.clipboard)
+                tlcorner = (min((-self.clipboard_start[0]+self.world_mouse_tile_x), (-self.clipboard_end[0]+self.world_mouse_tile_x)), min((-self.clipboard_start[1]+self.world_mouse_tile_y), (-self.clipboard_end[1]+self.world_mouse_tile_y)))
+                anchor = (tlcorner[0] - self.world_mouse_tile_x, tlcorner[1] - self.world_mouse_tile_y)
+
+
+                s.fill((255, 255, 255, 128))
+                for key, tile in zip(self.clipboard.keys(), self.clipboard.values()):
+                    s.blit(tile.loadscale(self.tile_size), ((key[0]-anchor[0])*self.tile_size, (key[1]-anchor[1])*self.tile_size))
+                s.set_alpha(128)
+
+                self.window.blit(s, (min((-self.clipboard_start[0]+self.world_mouse_tile_x)*self.tile_size-self.cam_x, (-self.clipboard_end[0]+self.world_mouse_tile_x)*self.tile_size-self.cam_x), min((-self.clipboard_start[1]+self.world_mouse_tile_y)*self.tile_size-self.cam_y, (-self.clipboard_end[1]+self.world_mouse_tile_y)*self.tile_size-self.cam_y)))
+
+
+            if not self.selecting and not self.show_clipboard and not self.puzzlemode:
+                # Draw brush image
+                brush_image = cell_images[self.brush].convert_alpha()
+                alpha_img = pygame.Surface(brush_image.get_rect().size, pygame.SRCALPHA)
+                alpha_img.fill((255, 255, 255, 255*0.25)) # type: ignore
+                brush_image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                if True not in self.all_buttons:
+                    self.window.blit(pygame.transform.rotate(pygame.transform.scale(brush_image, (self.tile_size, self.tile_size)), -90*self.brush_dir), (self.world_mouse_tile_x*self.tile_size-self.cam_x, self.world_mouse_tile_y*self.tile_size-self.cam_y))
+
+            if not self.puzzlemode:
+                # Draw bottom toolbar
+                pygame.draw.rect(self.window, (60, 60, 60), pygame.Rect(-10, self.window_height-self.TOOLBAR_HEIGHT, self.window_width+20, self.TOOLBAR_HEIGHT+10))
+                pygame.draw.rect(self.window, (127, 127, 127), pygame.Rect(-10, self.window_height-self.TOOLBAR_HEIGHT, self.window_width+20, self.TOOLBAR_HEIGHT+10), 1)
+
+                # Update toolbar positions\
+                self.tools_icon_rect.midleft = (7, self.window_height - 27)
+                self.basic_icon_rect.midleft = (7+1*54, self.window_height - 27)
+                self.movers_icon_rect.midleft = (7+2*54, self.window_height - 27)
+                self.generators_icon_rect.midleft = (7+3*54, self.window_height - 27)
+                self.rotators_icon_rect.midleft = (7+4*54, self.window_height - 27)
+                self.forcers_icon_rect.midleft = (7+5*54, self.window_height - 27)
+                self.divergers_icon_rect.midleft = (7+6*54, self.window_height - 27)
+                self.destroyers_icon_rect.midleft = (7+7*54, self.window_height - 27)
+                self.misc_icon_rect.midleft = (7+9*54, self.window_height - 27)
+                # Blit toolbar icons
+                self.window.blit(pygame.transform.rotate(self.tools_icon_image, 0), self.tools_icon_rect)
+                self.window.blit(pygame.transform.rotate(self.basic_icon_image, -90*self.brush_dir), self.basic_icon_rect)
+                self.window.blit(pygame.transform.rotate(self.movers_icon_image, -90*self.brush_dir), self.movers_icon_rect)
+                self.window.blit(pygame.transform.rotate(self.generators_icon_image, -90*self.brush_dir), self.generators_icon_rect)
+                self.window.blit(pygame.transform.rotate(self.rotators_icon_image, -90*self.brush_dir), self.rotators_icon_rect)
+                self.window.blit(pygame.transform.rotate(self.forcers_icon_image, -90*self.brush_dir), self.forcers_icon_rect)
+                self.window.blit(pygame.transform.rotate(self.divergers_icon_image, -90*self.brush_dir), self.divergers_icon_rect)
+                self.window.blit(pygame.transform.rotate(self.destroyers_icon_image, -90*self.brush_dir), self.destroyers_icon_rect)
+                self.window.blit(pygame.transform.rotate(self.misc_icon_image, -90*self.brush_dir), self.misc_icon_rect)
+
+            for button in self.toolbar_subicons:
+                button.draw(self.window)
+            for button in self.toolbar_subcategories.values():
+                button.update(mouse_buttons, mouse_x, mouse_y, self.brush, self.current_menu)
+                button.draw(self.window)
+            if self.paused:
+                self.play_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+                self.play_button.draw(self.window)
+            else:
+                self.pause_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+                self.pause_button.draw(self.window)
+
+            
+            self.step_button.draw(self.window)       
+            self.reset_button.draw(self.window)      
+            if not self.puzzlemode: 
+                self.initial_button.draw(self.window)
+            if not self.puzzlemode:       
+                for i in self.topleft_button_group:
+                    i.draw(self.window)
+            else:
+                self.menu_button.draw(self.window)
+                self.zoomin_button.draw(self.window)
+                self.zoomout_button.draw(self.window)
+
+            self.menu_bg_rect.center = (self.window_width//2, self.window_height//2)
+            
+
+            if self.menu_on:
+
+                self.window.blit(self.menu_bg, self.menu_bg_rect)
+                if not self.result:
+                    self.continue_button.draw(self.window)
+
+                    self.exit_button.draw(self.window)
+
+                    self.menu_reset_button.draw(self.window)
+
+                    if not self.builtin_puzzle:
+                        self.clear_button.draw(self.window)
+                        self.save_button.draw(self.window)
+                        self.load_button.draw(self.window)
+                        self.puzzle_button.draw(self.window)
+                    self.tickspeed_slider.update()
+                    self.step_speed = round(self.tickspeed_slider.value, 2)
+                    self.tickspeed_slider.value = self.step_speed
+                    self.tickspeed_slider.draw()
+                    
+                    self.tpu_slider.update()
+                    self.tpu = math.floor(self.tpu_slider.value)
+                    self.tpu_slider.value = self.tpu
+                    self.tpu_slider.draw()
+
+                    if not self.puzzlemode:
+                        temp = self.nokia(8).render("Width", True, (255, 255, 255))
+                        temp_rect = temp.get_rect()
+                        temp_rect.bottomleft = self.width_box.rect.topleft
+                        self.window.blit(temp, temp_rect)
+                        self.width_box.draw(self.window)
+
+                        temp = self.nokia(8).render("Height", True, (255, 255, 255))
+                        temp_rect = temp.get_rect()
+                        temp_rect.bottomleft = self.height_box.rect.topleft
+                        self.window.blit(temp, temp_rect)
+                        self.height_box.draw(self.window)
+
+
+
+                    update_delay_text = self.nokia(8).render(f"Update delay: {self.step_speed}s", True, (255, 255, 255))
+                    update_delay_rect = update_delay_text.get_rect()
+                    update_delay_rect.bottomleft = (self.tickspeed_slider.x, self.tickspeed_slider.y)
+                    self.window.blit(update_delay_text, update_delay_rect)
+
+                    tpu_text = self.nokia(8).render(f"Ticks per update: {self.tpu}", True, (255, 255, 255))
+                    tpu_rect = tpu_text.get_rect()
+                    tpu_rect.bottomleft =self.tpu_slider.rect.topleft
+                    self.window.blit(tpu_text, tpu_rect)
+
+                if self.result == "victory":
+                    victory_text = self.nokia(32).render("Victory!", True, (255, 255, 255))
+                    victory_rect = victory_text.get_rect()
+                    victory_rect.midbottom = self.menu_bg_rect.center
+                    self.window.blit(victory_text, victory_rect)
+                    for button in [self.result_back_button, self.result_reset_button, self.result_continue_button]:
+                        button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+                        button.draw(self.window)
+                #self.window.blit(update_delay_text, update_delay_rect)
+
+                
+
+
+
+
+
+            
+
+
         elif self.screen == "title":
-            self.update_title(events, keys, mouse_buttons, mouse_x, mouse_y)        
+            # Event loop
+            #events = pygame.event.get()
+            for event in events:
+                if event.type == pygame.MOUSEBUTTONUP:
+                    if mouse_buttons[0] and self.start_play_button.rect.collidepoint(event.pos[0], event.pos[1]):
+                        self.screen = "game"
+                        self.trash()
+                        self.menu_on = False
+                        self.tile_size = 20.0
+                        self.cam_x = 0
+                        self.cam_y = 0
+                        self.puzzlemode = False
+                        self.builtin_puzzle = False
+                        self.decode_K3(self.default)
+                    if mouse_buttons[0] and self.puzzles_button.rect.collidepoint(event.pos[0], event.pos[1]):
+                        self.screen = "puzzles"
+                        self.menu_on = False
+                        self.tile_size = 20.0
+                        self.cam_x = 0
+                        self.cam_y = 0
+                        self.mouse_buttons = (0, 0, 0)
+                        events = []
+                    
+                    if mouse_buttons[0] and self.quit_button.rect.collidepoint(mouse_x, mouse_y):
+                        self.running = False
+            self.window.fill(self.BACKGROUND, self.window.get_rect())
+            #logo_image, _ = rot_center(logo_image, logo_rect, math.sin(t))
+            self.logo_rect.midbottom = (self.window_width//2, self.window_height//2)
+            self.window.blit(rot_center(self.logo_image, self.logo_rect, math.sin(self.t)*5)[0], rot_center(self.logo_image, self.logo_rect, math.sin(self.t)*5)[1])       
+
+            self.start_play_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.start_play_button.draw(self.window)
+
+            self.puzzles_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.puzzles_button.draw(self.window)
+
+            self.quit_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.quit_button.draw(self.window)
+
+        self.clock.tick()
+        self.dt = self.clock.get_time() / 1000
+        self.t+=self.dt
+        if not self.paused:
+            if self.dt > self.step_speed:
+                self.update_timer = 0
+            else:
+                self.update_timer -= self.dt
+            if self.update_timer <= 0:
+                self.update_timer += self.step_speed
+                if self.update_timer < 0:
+                    self.update_timer = 0
+                self.reset_old_values()
+                for _ in range(self.tpu):
+                    self.tick()
+        else:
+            if self.update_timer > 0:
+                self.update_timer -= self.dt
+            else:
+                self.update_timer = 0
+
             
-        elif self.screen == "puzzles":
-            self.update_puzzles(events, keys, mouse_buttons, mouse_x, mouse_y)
+
+        if self.screen == "puzzles":
+            self.window.fill(self.BACKGROUND, self.window.get_rect())
+            for event in events:
+                if event.type == pygame.MOUSEBUTTONUP:
+                    if event.button == 1 and self.puzzles_back_button.rect.collidepoint(event.pos[0], event.pos[1]):
+                        self.screen = "title"
+                        self.menu_on = False
+                        self.tile_size = 20.0
+                        self.cam_x = 0
+                        self.cam_y = 0
+                    for i, button in enumerate(self.puzzles_group):
+                        if mouse_buttons[0] and button.rect.collidepoint(event.pos[0], event.pos[1]):
+                            lcode = list(self.puzzles.values())[i+1]
+                            if lcode[:3] == "K3:":
+                                self.puzzlemode = True
+                                self.builtin_puzzle = True
+                                self.screen = "game"
+                                self.menu_on = False
+                                self.tile_size = 20.0
+                                self.cam_x = 0
+                                self.cam_y = 0
+                                self.set_initial()
+                                self.decode_K3(list(self.puzzles.values())[i+1])
+
+            self.puzzles_back_button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+            self.puzzles_back_button.draw(self.window)
+
+            for button in self.puzzles_group:
+                button.update(mouse_buttons, mouse_x, mouse_y, 0, 0)
+                button.draw(self.window)
+
+            for i, button in enumerate(self.puzzles_group):
+                #difficulties = ["difficulty/"+i+".png" for i in ["", "easier", "easy", "medium", "hard", "harder", "extreme", "easiersuper", "easysuper", "mediumsuper", "hardsuper", "hardersuper", "extremesuper"]]
+
+                button.rect.topleft = (self.window_width//2 -300 + 50*((i)%10 + 1), self.window_height//2 - 100 + 50*((i)//10 + 1))
+                text = self.nokia(16).render(str(i+1), True, (255, 255, 255))
+                
+                text_rect = text.get_rect()
+                text_rect.center = button.rect.center
+                shadow_text = self.nokia(16).render(str(i+1), True, (0, 0, 0))
+                
+                shadow_text_rect = shadow_text.get_rect()
+                shadow_text_rect.center = (text_rect.center[0]+2, text_rect.center[1]+2)
+                self.window.blit(shadow_text, shadow_text_rect)
+                self.window.blit(text, text_rect)
 
         if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
             disp = self.cell_map[self.world_mouse_tile_x, self.world_mouse_tile_y].__repr__()

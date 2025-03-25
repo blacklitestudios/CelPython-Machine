@@ -92,13 +92,14 @@ class MenuSubCategory(pygame.sprite.Sprite):
 class Button(pygame.sprite.Sprite):
     def __init__(self, game, img, size, rot=0, tint=(255, 255, 255)):
         super().__init__()
-        self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load(f"textures/{img}").convert_alpha(), (size, size)), rot)
+        self.game = game
+        self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load(self.game.resource_path(f"textures/{img}")).convert_alpha(), (size, size)), rot)
         self.rect = self.image.get_rect()
         self.alpha = 0.5
         self.brightness = 1
         self.tint = tint
         self.block = False
-        self.game = game
+
 
         #self.update((0, 0, 0), 0, 0, 0, 0)
         #self.draw(pygame.Surface((1, 1)))
@@ -146,13 +147,14 @@ class Button(pygame.sprite.Sprite):
 class MenuButton(pygame.sprite.Sprite):
     def __init__(self, game, img, size, rot=0, tint=(255, 255, 255)):
         super().__init__()
-        self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load(f"textures/{img}").convert_alpha(), (size, size)), rot)
+        self.game = game
+        self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load(self.game.resource_path(f"textures/{img}")).convert_alpha(), (size, size)), rot)
         self.rect = self.image.get_rect()
         self.alpha = 0.5
         self.brightness = 1
         self.tint = tint
         self.block = False
-        self.game = game
+
 
         #self.update((0, 0, 0), 0, 0, 0, 0)
         #self.draw(pygame.Surface((1, 1)))
@@ -178,7 +180,7 @@ class MenuButton(pygame.sprite.Sprite):
         alpha_img = pygame.Surface(self.rect.size, pygame.SRCALPHA)
         alpha_img.fill((self.brightness*self.tint[0], self.brightness*self.tint[1], self.brightness*self.tint[2], 255*self.alpha))
         button_image.blit(alpha_img, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        window.blit(pygame.transform.rotate(button_image, -self.game.brush_dir*90), self.rect)
+        window.blit(pygame.transform.rotate(button_image, 0), self.rect)
 
     def handle_click(self, mouse, mouse_x, mouse_y, brush, current_menu):
         #import main
@@ -197,19 +199,6 @@ class MenuButton(pygame.sprite.Sprite):
             else:
                 self.alpha = 0.5
         return False
-
-class ToolbarButton(Button):
-    def update(self, mouse, mouse_x, mouse_y, brush, current_menu) -> bool: # type: ignore
-        from main import all_buttons
-        if self.rect.collidepoint(mouse_x, mouse_y):
-            all_buttons.append(True)
-            if mouse[0]:
-                self.brightness = 0.5
-            else:
-                self.brightness = 1
-            self.alpha = 1
-        else:
-            self.alpha = 1
 
     
 

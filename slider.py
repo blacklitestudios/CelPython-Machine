@@ -29,7 +29,7 @@ class Slider:
         #pygame.draw.rect(self.game.window, (255, 255, 255), self.slider_rect, 2)
         #font = pygame.font.Font(None, 30)
         #text = font.render(str(self.value), True, (255, 255, 255))
-        #self.game.window.blit(text, (self.x+self.width+10, self.y))
+        #iself.game.window.blit(text, (self.x+self.width+10, self.y))
         return self.value
     def get_value(self):
         return self.value

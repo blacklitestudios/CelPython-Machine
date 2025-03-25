@@ -1,5 +1,6 @@
 import math
 
+
 raw = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!$%&+-.=?^{}/#_*':,@~|"
 cheatsheet = {}
 for i in range(0,84):

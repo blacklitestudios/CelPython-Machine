@@ -1,6 +1,11 @@
 import sys
 import os
 import math
+import pyperclip
+
+from encoding import base84, cheatsheet
+from zlib import compress
+import base64
 
 
 
@@ -8,7 +13,7 @@ import pygame
 
 from cell import Cell, cell_images, rot_center
 from button import Button, MenuButton, MenuSubCategory, MenuSubItem
-from slider import Slider
+from slider import Slider            
 from textbox import Textbox
 
 
@@ -125,8 +130,8 @@ class CelPython:
 
         self.update_timer: float = self.step_speed
 
-        self.width_box: Textbox = Textbox(self.menu_bg_rect.left+102, self.menu_bg_rect.top+221-25, 50, 25, "nokiafc22.ttf", size=16, text='100')
-        self.height_box: Textbox = Textbox(self.menu_bg_rect.right-102-50, self.menu_bg_rect.top+221-25, 50, 25, "nokiafc22.ttf", size=16, text='100')
+        self.width_box: Textbox = Textbox(self.menu_bg_rect.left+102, self.menu_bg_rect.top+221-25, 50, 25, self.resource_path("nokiafc22.ttf"), size=16, text='100')
+        self.height_box: Textbox = Textbox(self.menu_bg_rect.right-102-50, self.menu_bg_rect.top+221-25, 50, 25, self.resource_path("nokiafc22.ttf"), size=16, text='100')
 
 
         # Rects
@@ -181,7 +186,7 @@ class CelPython:
         self.exit_button = MenuButton(self, "delete.png", 40, tint=(255, 128, 128))
         self.exit_button.rect.bottomleft = (self.window_width//2 - self.menu_bg_rect.width//2 + 32 + 50*6, self.window_height//2 + self.menu_bg_rect.height//2 - 32)
 
-        self.logo_image = pygame.image.load("textures/logo.png")
+        self.logo_image = pygame.image.load(self.resource_path("textures/logo.png"))
         self.logo_rect = self.logo_image.get_rect()
         self.logo_rect.midbottom = (self.window_width//2, self.window_height//2)
 
@@ -224,6 +229,20 @@ class CelPython:
         self.result_reset_button.rect.midbottom = (self.menu_bg_rect.centerx, self.menu_bg_rect.bottom - 20)
         self.result_continue_button = MenuButton(self, "mover.png", 60)
         self.result_continue_button.rect.bottomright = (self.menu_bg_rect.right - 100, self.menu_bg_rect.bottom - 20)
+
+        self.destroy_sound = pygame.mixer.Sound(self.resource_path("audio/destroy.ogg"))
+        self.move_sound = pygame.mixer.Sound(self.resource_path("audio/move.ogg"))
+        self.rotate_sound = pygame.mixer.Sound(self.resource_path("audio/rotate.ogg"))
+        self.gear_sound = pygame.mixer.Sound(self.resource_path("audio/gear.ogg"))
+
+        self.play_destroy_flag = False
+        self.play_move_sound = False
+        self.play_rotate_sound = False
+        self.play_gear_sound = False
+
+        self.music = "scattered_cells"
+        pygame.mixer.music.load(self.resource_path("audio/scattered cells.ogg"))
+        pygame.mixer.music.play()
 
         # Create submenu icons
         cell_id: int | str
@@ -321,6 +340,7 @@ class CelPython:
             self.cell_map[(self.grid_width, self.grid_height)] = Cell(self, self.grid_width, self.grid_height, self.border_tile, 0)
 
         self.set_initial()
+        
 
         # Text
         title_text: pygame.Surface = self.nokia(15).render("CelPython Machine", True, (255, 255, 255))
@@ -345,6 +365,8 @@ class CelPython:
 
         self.tickspeed_slider = Slider(self, (self.menu_bg_rect.left+300)//2, self.window_height//2 - 100, 300, 10, 0.001, 1, 0.2)
         self.tpu_slider = Slider(self, (self.menu_bg_rect.left+300)//2, self.window_height//2 - 70, 300, 10, 1, 11, 1)
+
+        self.subticks = []
 
 
 
@@ -475,7 +497,12 @@ class CelPython:
 
         self.delete_map = []
 
-        # Do freezers (subtick 9)
+        self.play_move_sound = False
+        self.play_rotate_sound = False
+        self.play_gear_sound = False
+        self.play_destroy_flag = False
+
+        # Do freezers (subtick 8)
         for i in range(4):
             for cell in self.cell_map.values():
                 cell.do_freeze(i)
@@ -592,6 +619,15 @@ class CelPython:
         if self.tags["enemy"] == 0 and self.initial_tags["enemy"] !=  0 and self.puzzlemode:
             self.victory()
             self.paused = True
+        
+        if self.play_move_sound:
+            self.move_sound.play()
+        if self.play_rotate_sound:
+            self.rotate_sound.play()
+        if self.play_gear_sound:
+            self.gear_sound.play()
+        if self.play_destroy_flag:
+            self.destroy_sound.play()
 
     def draw(self):
         # divergers
@@ -1441,10 +1477,8 @@ class CelPython:
         
 
     def save_map(self):
-        from encoding import base84, cheatsheet
-        from zlib import compress
-        import base64
-        import pyperclip
+
+        
         currentcell = 0
         result = "K3::;"
         result = result+base84(self.grid_width)+";"+base84(self.grid_height)+';'
@@ -1472,12 +1506,14 @@ class CelPython:
         for i in range(len(cellcodes)):
             cellcode = cellcode+cellcodes[i]
 
-        with open("cellcode.txt", "w") as f:
-            f.write(cellcode)
+
+        #input()
         cellcode = base64.b64encode(compress(str.encode(cellcode),9)).decode("utf-8")
         result = result + cellcode + ";"
         #print(result)
+
         pyperclip.copy(result)
+
 
     def decode_K3(self, code):
         from encoding import unbase84, cheatsheet, reverse_cheatsheet
@@ -1746,7 +1782,7 @@ class CelPython:
             return True
         
     def load_map(self):
-        import pyperclip
+        #import pyperclip
         self.decode_K3(pyperclip.paste())
         
     

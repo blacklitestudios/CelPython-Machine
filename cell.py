@@ -559,7 +559,8 @@ class Cell():
             if force_type == 0:
                 self.push((dir), False, force=1)
             if (self.tile_x+dx3, self.tile_y+dy3) not in cell_map.keys():
-                cell_map[self.tile_x+dx3, self.tile_y+dy3] = new_cell_3
+                if origin.id:
+                    cell_map[self.tile_x+dx3, self.tile_y+dy3] = new_cell_3
                 new_cell_3.suppressed = suppress
                 foo = increment_with_divergers(self.game, temp[0], temp[1], temp[4])
                 if (foo[0], foo[1]) in cell_map.keys():
@@ -583,7 +584,8 @@ class Cell():
             if force_type == 0:
                 self.push((dir+1), False, force=1)
             if (self.tile_x+dx1, self.tile_y+dy1) not in cell_map.keys():
-                cell_map[self.tile_x+dx1, self.tile_y+dy1] = new_cell_1
+                if origin.id:
+                    cell_map[self.tile_x+dx1, self.tile_y+dy1] = new_cell_1
                 new_cell_1.suppressed = suppress
                 foo = increment_with_divergers(self.game, temp[0], temp[1], temp[4])
                 if (foo[0], foo[1]) in cell_map.keys():
@@ -606,8 +608,8 @@ class Cell():
             if force_type == 0:
                 self.push((dir-1)%4, False, force=1)
             if (self.tile_x+dx2, self.tile_y+dy2) not in cell_map.keys():
-
-                cell_map[self.tile_x+dx2, self.tile_y+dy2] = new_cell_2
+                if origin.id:
+                    cell_map[self.tile_x+dx2, self.tile_y+dy2] = new_cell_2
                 new_cell_2.suppressed = suppress
                 foo = increment_with_divergers(self.game, temp[0], temp[1], temp[4])
                 if (foo[0], foo[1]) in cell_map.keys():
@@ -1514,7 +1516,7 @@ class Cell():
         dx: int
         dy: int
         dx, dy = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir)%4)[3]
-        odx, ody = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir)%4)[3]
+        out_dir = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir)%4)[4]
         generated_cell: Cell = cell
         if generated_cell.generation == "ghost":
             return False
@@ -1533,16 +1535,20 @@ class Cell():
 
             if cell.generation != 'normal':
                 cell.generation -= 1
+            #generated_cell.check_generation()
 
             print("eee")
-            cell_map[(self.tile_x + dx, self.tile_y + dy)] = generated_cell
+            if generated_cell.id:
+                cell_map[(self.tile_x + dx, self.tile_y + dy)] = generated_cell
             return generated_cell
         else:
-            if cell_map[generated_cell.tile_x, generated_cell.tile_y].get_side(dir+2) == "trash": 
+            if cell_map[generated_cell.tile_x, generated_cell.tile_y].get_side(dir+2) in ["trash", "forker", "triforker", "cwforker", "ccwforker"]: 
                 self.game.play_destroy_flag = True
                 generated_cell.old_x = self.tile_x
                 generated_cell.old_y = self.tile_y
                 self.game.delete_map.append(generated_cell)
+                cell_map[generated_cell.tile_x, generated_cell.tile_y].on_force(out_dir, generated_cell)
+                return generated_cell
 
             return None
         
@@ -1551,7 +1557,9 @@ class Cell():
         if type(self.generation) != int:
             return
         if self.generation < 0:
-            del cell_map[self.tile_x, self.tile_y]
+            if self in cell_map.values():
+                del cell_map[self.tile_x, self.tile_y]
+            self.set_id(0)
 
 
     
@@ -1583,14 +1591,16 @@ class Cell():
         
         if behind_cell.generation == "ghost":
             return False
+        try:
+            generated_cell.generation -= 1
+        except TypeError:
+            pass
+        generated_cell.check_generation()
         temp = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir-angle)%4)
-        if temp[:2] in cell_map.keys():
-            cell_map[temp[:2]].on_force(temp[4], generated_cell, suppress=False)
-
-
         new_cell = self.gen(dir, generated_cell)
-        if type(new_cell) == Cell:
-            new_cell.check_generation()
+
+
+
 
             
 
@@ -1782,20 +1792,19 @@ class Cell():
         self.pull(self.dir, False)
         self.suppressed = True
 
-    def drill(self, dir, test: bool = False):
+    def drill(self, dir, move: bool = True):
+        self.suppressed = True
         cell_map = self.game.cell_map
         dx, dy = get_deltas(dir)
-        if (self.tile_x + dx, self.tile_y + dy) in cell_map.keys():
+        if (self.tile_x + dx, self.tile_y + dy) in cell_map.keys() and cell_map[(self.tile_x + dx, self.tile_y + dy)].get_side((dir+2)%4) != "trash":
             if cell_map[(self.tile_x + dx, self.tile_y + dy)].get_side((dir+2)%4) == "wall":
                 return False
-            elif cell_map[(self.tile_x + dx, self.tile_y + dy)].get_side((dir+2)%4) == "trash":
-                del cell_map[self.tile_x, self.tile_y]
-                self.game.delete_map.append(self)
-                self.tile_x += dx
-                self.tile_y += dy
-                return True
-        if not test:
-            swap_cells(self.game, (self.tile_x, self.tile_y), (self.tile_x + dx, self.tile_y + dy))
+
+            if move:
+                swap_cells(self.game, (self.tile_x, self.tile_y), (self.tile_x + dx, self.tile_y + dy))
+        else:
+            if move:
+                self.nudge(dir, True)
         return True
     def do_drill(self, dir):
         if self.frozen or self.suppressed:
@@ -1808,11 +1817,11 @@ class Cell():
         #print()
 
         if self.pushes:
-            if not self.drill(self.dir, test=True):
+            if not self.drill(self.dir, False):
                 self.suppressed = True
                 return 
         else:
-            if not self.drill(self.dir, test=True):
+            if not self.drill(self.dir, False):
                 self.suppressed = True
                 return 
 

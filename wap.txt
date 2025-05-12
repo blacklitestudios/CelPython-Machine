@@ -1,0 +1,47 @@
+def apply_to_cells(self, priority, func: callable, grid_lengths):
+    '''Gets all the cells with a given ID and a direction, and orders them for sub-sub-ticking.'''
+    a: range
+    b: range
+    match priority:
+        case 0:
+            match priority[0]:
+                case 1:
+                    a = range(grid_lengths)
+                    match priority[1]:
+                        case 1:
+                            b = range(grid_lengths)
+                        case -1:
+                            b = reversed(range(grid_lengths))
+                case -1:
+                    a = range(grid_lengths-1, -1, -1)
+                    match priority[1]:
+                        case 1:
+                            b = range(grid_lengths)
+                        case -1:
+                            b = reversed(range(grid_lengths))
+
+        case 1:
+            match priority[0]:
+                case 1:
+                    a = range(grid_lengths)
+                    match priority[1]:
+                        case 1:
+                            b = range(grid_lengths)
+                        case -1:
+                            b = reversed(range(grid_lengths))
+                case -1:
+                    a = range(grid_lengths-1, -1, -1)
+                    match priority[1]:
+                        case 1:
+                            b = range(grid_lengths)
+                        case -1:
+                            b = reversed(range(grid_lengths))
+
+    
+    result = []
+    for i in b:
+        for j in a:
+            
+            result.append(((i, j) if axis else (j, i)))
+    return result
+    

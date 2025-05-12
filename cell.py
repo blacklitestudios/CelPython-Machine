@@ -2,11 +2,11 @@ import math
 import random
 
 import pygame
+from side import Side
 
 from typing import Self
 
 pygame.init()
-
 
 
 cell_names: dict[str | int, str] = {
@@ -115,47 +115,105 @@ cell_names: dict[str | int, str] = {
     100: "tridivider",
     101: "cwdivider",
     102: "ccwdivider",
+    103: "conditional",
+    104: "antiweight",
+    105: "transmitter",
+    106: "shifter",
+    107: "crossshifter",
+    108: "minigear_cw",
+    109: "minigear_ccw",
+    110: "cwcloner",
+    111: "ccwcloner",
+    112: "locker",
+    113: "redirectgenerator",
     114: "nudger",
+    115: "slicer",
+    116: "marker",
+    117: "marker_x",
+    118: "marker_warn",
+    119: "marker_check",
+    120: "marker_question",
+    121: "marker_arrow",
+    122: "marker_darrow",
+    123: "crimson",
+    124: "warped",
+    125: "corruption",
+    126: "hallow",
+    127: "cancer",
+    128: "bacteria",
+    129: "bioweapon",
+    130: "prion",
+    131: "greygoo",
+    132: "virus",
+    133: "tumor",
+    134: "infection",
+    135: "pathogen",
+    136: "pushclamper",
+    137: "pullclamper",
+    138: "grabclamper",
+    139: "swapclamper",
+    140: "toughtwodirectional",
+    141: "megademolisher",
+    142: "resistance",
+    143: "tentative",
+    144: "restrictor",
+    145: "megashield",
+    146: "timewarper",
+    147: "timegenerator",
+    148: "crosstimewarper",
+    149: "life",
+    150: "spinnercw",
+    151: "spinnerccw",
+    152: "spinner180",
+    153: "key",
+    154: "door",
+    155: "crossintaker",
+    156: "magnet",
+    157: "toughonedirectional",
+    158: "toughthreedirectional",
+    159: "toughpush",
     208: "diodediverger",
+
     #231: "silicon", # bro i am not coding this
     1201: "dextroanlevogenerator",
     "bob": "bob",
     "nonexistant": "nonexistant",
-    "bgvoid": "voidbg"
+    "bgvoid": "bgvoid"
 }
 
 cell_cats_new = [
     # Categories of cells in the UI
     [], # Tools
     [[1, 41], # Walls
-     [4, 5, 6, 7, 8, 69], # Pushables
+     [4, 5, 6, 7, 8, 69, 140, 157, 158, 159], # Pushables
      [52, 53, 54], # Oppositions
-     [22, 42],], # Basic
+     [22, 42, 103, 104, 142, 143, 144], # Weight 
+     [116, 117, 118, 119, 120, 121, 122]], #Decorative] # Basic
 
     [[2, 28, 59, 60, 72, 74, 76, 78], # Pushers
      [14, 28, 60, 61, 73, 74, 77, 78], # Pullers
      [71, 72, 73, 74, 75, 76, 77, 78], # Grabbers
      [58, 59, 60, 61, 75, 76, 77, 78], # Drillers
-     [114, "bob"] # Other
+     [114, "bob", 115] # Other
     ], # Movers
 
-    [[3, 23, 26, 27, 40, 1201], # Generators
+    [[3, 23, 26, 27, 40, 110, 111, 113, 147, 1201], # Generators
      [55], # Super Generators
      [45, 46], # Replicators
      [32, 33, 34, 35, 36, 37] # Gates
     ], # Generators
 
-    [[9, 10, 11, 66, 67, 68, 57, 70], # Rotators
+    [[9, 10, 11, 66, 67, 68, 57, 70, 150, 151, 152], # Rotators
      [18, 19], # Gears
      [17, 62, 63, 64, 65], # Redirectors
      [30, 89, 90] # Flippers
     ], # Rotators
 
-    [[21, 50], [29], [81, 82], [15, 56, 80], [18, 19], [44]], # Forcers
+    [[21, 50], [29], [81, 82], [15, 56, 80], [18, 19, 108, 109], [44, 155], [106, 107], [156]], # Forcers
     [[16, 31, 38, 39, 83, 84, 85, 86, 87, 88, 91, 92, 93, 94, 95, 96, 208], [48, 49, 97, 98, 99, 100, 101, 102], [79], ], # Divergers
-    [[12], [51], [13, 24], [44]], # Destroyers
-    [], # Transformers
-    [[20, 25, 43, 47, "placeable", "bgvoid"]] # Misc
+    [[12], [51, 141], [13, 24], [44]], # Destroyers
+    [[146, 148]], # Transformers
+    [[20], [47, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 149], [25, 43, 105, 112, 136, 137, 138, 139, 145], [153, 154], ["placeable", "bgvoid"], ] # Misc
 ]
 
 flip_guide = [
@@ -169,8 +227,8 @@ flip_guide = [
 
 
 def resource_path(relative_path):
-    import os, sys
     """ Get absolute path to resource, works for dev and for PyInstaller """
+    import os, sys   
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS # type: ignore
@@ -290,6 +348,7 @@ def swap_cells(game, a: tuple[int, int], b: tuple[int, int]):
         del cell_map[a] # Delete the cell at a
    
 def increment_with_divergers(game, x, y, dir: int, force_type = 0, displace=False) -> tuple[int, int, int, tuple[int, int], int]:
+    """Determine the next cell in a direction, accounting for divergers."""
     cell_map = game.cell_map
     dir %= 4
     #from main import cell_map # Import the cell map
@@ -335,7 +394,7 @@ def increment_with_divergers(game, x, y, dir: int, force_type = 0, displace=Fals
         
         
         
-        #print(cell_map[current_x+cwdx, current_y+cwdy])
+        ##print(.+?)cell_map[current_x+cwdx, current_y+cwdy])
         if next_cell.get_side((current_dir+2)) == "cwdiverger": # If the next cell is a CW diverger,
             current_dir = (current_dir+1) # Rotate CW
             continue
@@ -358,13 +417,13 @@ def increment_with_divergers(game, x, y, dir: int, force_type = 0, displace=Fals
                 stop_flag = True
                 continue
             elif next_cell.get_side((current_dir+2)) == "ccwdisplacer": # If the next cell is a CCW diverger,
-                #print("eeee")
+                ##print(.+?)"eeee")
                 current_x += ccwdx
                 current_y += ccwdy # Rotate CW
                 stop_flag = True
                 continue
             elif next_cell.get_side((current_dir+2)) == "displacer": # If the next cell is a CCW diverger,
-                #print("eeee")
+                ##print(.+?)"eeee")
                 stop_flag = True
                 continue
 
@@ -389,7 +448,7 @@ def rot_center(image: pygame.Surface, rect: pygame.Rect, angle):
 nonexistant = pygame.image.load(resource_path("textures/nonexistant.png")) # Load the nonexistant image
 
 class Cell():
-    '''A class to represent a cell.'''
+    '''A class to represent a cell. Also contains most cell-related functions.'''
     def __init__(self, game, x: int, y: int, id: int | str, dir: int, layer=None) -> None:
         '''Initialize the cell.'''
         # Initialize the sprite
@@ -403,10 +462,10 @@ class Cell():
         self.old_x: int = x # Set the old x to x
         self.old_y: int = y # Set the old y to y
         self.old_dir: int = dir # Set the old direction to dir
-        if id in cell_names.keys():
-            self.id: int | str = id
+        self.id: int | str = id
 
-        self.name = cell_names[self.id] # Set the name to the name of the cell
+
+        self.name = cell_names.get(self.id, "nonexistant") # Set the name to the name of the cell
         self.dir: int = dir # Set the direction to dir
         self.actual_dir: int = dir*-90 # Set the actual direction to dir times -90
         self.img_cache = {}
@@ -428,12 +487,17 @@ class Cell():
         # Effect variables
         self.frozen: bool = False # Set the frozen flag to False
         self.protected: bool = False # Set the protected flag to False
+        self.locked: bool = False
+        self.pushclamped: bool = False
+        self.pullclamped: bool = False
+        self.grabclamped: bool = False
+        self.swapclamped: bool = False
 
         # Sides
-        self.left: str = "pushable" # Set the left side to pushable
-        self.right: str = "pushable" # Set the right side to pushable
-        self.top: str = "pushable" # Set the top side to pushable
-        self.bottom: str = "pushable" # Set the bottom side to pushable
+        self.left: Side = Side(["pushable"]) # Set the left side to pushable
+        self.right: Side = Side(["pushable"]) # Set the right side to pushable
+        self.top: Side = Side(["pushable"]) # Set the top side to pushable
+        self.bottom: Side = Side(["pushable"]) # Set the bottom side to pushable
 
         self.br = "pushable"
         self.bl = "pushable"
@@ -444,6 +508,7 @@ class Cell():
         self.hp: int = 1 # Set the hp to 1
         self.generation: str | int = "normal" # Set the generation to normal
         self.weight = 1 # Set the weight to 1
+        self.rotatable = True
 
         # Push/pull variables
         self.pushes = False # Set the pushes flag to False
@@ -451,12 +516,17 @@ class Cell():
         self.drills = False
         self.cwgrabs = False
         self.ccwgrabs = False
+        self.slices = False
         #self.swaps = [] # Set the swaps flag to False
         self.gears = 0 # Set the gears flag to False
-        self.demolishes = False
+        self.minigears = 0
+        self.skewgears = 0
+        #self.demolishes = ""
         self.nudges = False
         self.mirrors = []
         self.bobs = False
+        self.lifes = False
+        self.infects = ("", "", 0)
 
         # Flags
         self.suppressed = False # Set the suppressed flag to False
@@ -466,6 +536,8 @@ class Cell():
         self.eat_bottom = False # Set the eat bottom flag to False
 
         self.tags = {"enemy": False, "ally": False, "neutral": False, "fiend": False}
+
+        self.extra_properties = {}
 
         
 
@@ -493,10 +565,11 @@ class Cell():
     def draw(self):
         '''Draw the cell on the screen'''
         #from main import window, TILE_SIZE, freeze_image, WINDOW_HEIGHT, WINDOW_WIDTH, protect_image, cell_map, delete_map, below, above
-        if (self not in self.game.cell_map.values() and self not in self.game.below.values() and self not in self.game.above.values()) and self not in self.game.delete_map:
+        if ((self not in self.game.cell_map.values() and self not in self.game.below.values() and self not in self.game.above.values()) and self not in self.game.delete_map) or self.id == "bgvoid":
             return
         mouse_x, mouse_y = pygame.mouse.get_pos()
         img = self.loadscale(self.game.tile_size)
+        rect = img.get_rect()
         true_img, true_rect = rot_center(img, self.rect, self.actual_dir)
         if true_rect.y+self.game.tile_size < 0:
             return
@@ -511,18 +584,32 @@ class Cell():
             true_rect.center = (mouse_x, mouse_y)
         # old_rect = self.rect.copy()
         
-        self.game.window.blit(true_img, true_rect)
+
         if (self.tile_x, self.tile_y) in self.game.below.keys() and self.game.tick_number == 0 and self.game.paused and self.game.selected_cell is not self:
             if self.game.below[self.tile_x, self.tile_y] is not self and self.game.below[self.tile_x, self.tile_y].id == "placeable":
 
-                self.game.window.blit(pygame.transform.scale(self.game.placeable_overlay, (self.game.tile_size, self.game.tile_size)), true_rect)
+                true_img.blit(pygame.transform.scale(self.game.placeable_overlay, (self.game.tile_size, self.game.tile_size)), (0, 0))
         if self.frozen:
-            self.game.window.blit(pygame.transform.scale(self.game.freeze_image, (self.game.tile_size, self.game.tile_size)), true_rect)
+            true_img.blit(pygame.transform.scale(self.game.freeze_image, (self.game.tile_size, self.game.tile_size)), (0, 0))
 
         if self.protected:
-            self.game.window.blit(pygame.transform.scale(self.game.protect_image, (self.game.tile_size, self.game.tile_size)), true_rect)
+            true_img.blit(pygame.transform.scale(self.game.protect_image, (self.game.tile_size, self.game.tile_size)), (0, 0))
+        if self.locked:
+            true_img.blit(pygame.transform.scale(self.game.lock_image, (self.game.tile_size, self.game.tile_size)), (0, 0))
+
+        if self.pushclamped:
+            true_img.blit(pygame.transform.scale(self.game.pushclamp_image, (self.game.tile_size, self.game.tile_size)), (0, 0))
+        if self.pullclamped:
+            true_img.blit(pygame.transform.scale(self.game.pullclamp_image, (self.game.tile_size, self.game.tile_size)), (0, 0))
+        if self.grabclamped:
+            true_img.blit(pygame.transform.scale(self.game.grabclamp_image, (self.game.tile_size, self.game.tile_size)), (0, 0))
+        if self.swapclamped:
+            true_img.blit(pygame.transform.scale(self.game.swapclamp_image, (self.game.tile_size, self.game.tile_size)), (0, 0))
+
+        self.game.window.blit(true_img, true_rect)
 
     def loadscale(self, size):
+        '''Load the image of the cell, from the cache if possible'''
         if size in self.img_cache.keys():
             return self.img_cache[size]
         img: pygame.Surface = pygame.transform.scale(self.image, (size, size))
@@ -530,9 +617,28 @@ class Cell():
         return img
 
     
-    def on_force(self, dir, origin: Self, suppress: bool = True, force_type = 0):
+    def on_force(self, dir, origin: Self, suppress: bool = True, force_type = "push"):
+        '''Things cells do when a force is applied.'''
         cell_map = self.game.cell_map
         dir %= 4
+        print("onforce"+force_type)
+        if self.get_side((dir+2)) == "cwspinner" and force_type == "nudge":
+            print("FF")
+            origin.rot(1)
+        if self.get_side((dir+2)) == "ccwspinner" and force_type == "nudge":
+            print("FF")
+            origin.rot(-1)
+        if self.get_side((dir+2)) == "180spinner" and force_type == "nudge":
+            print("FF")
+            origin.rot(2)
+        
+        if self.extra_properties.get("door"):
+            if origin.extra_properties.get("key"):
+                del cell_map[self.tile_x, self.tile_y]
+                del cell_map[origin.tile_x, origin.tile_y]
+
+            
+
         if self.id in [32, 33, 34, 35, 36, 37]:
             if self.get_side((dir+2)) == "trash":
                 match (self.dir+dir)%4:
@@ -546,7 +652,7 @@ class Cell():
                         self.eat_top = True
 
         if self.get_side((dir+2)) == "fungal":
-            origin.set_id(47)
+            origin.set_id(self.id)
 
         if self.get_side((dir+2)) in ["cwforker", "ccwforker", "triforker"]:
             new_cell_3: Cell = origin.copy()
@@ -556,7 +662,7 @@ class Cell():
             new_cell_3.rot(ddir)
             new_cell_3.tile_x = self.tile_x+dx3
             new_cell_3.tile_y = self.tile_y+dy3
-            if force_type == 0:
+            if force_type == "push":
                 self.push((dir), False, force=1)
             if (self.tile_x+dx3, self.tile_y+dy3) not in cell_map.keys():
                 if origin.id:
@@ -572,77 +678,82 @@ class Cell():
                 cell_map[self.tile_x+dx3, self.tile_y+dy3].on_force((dir+ddir), new_cell_3, suppress=suppress)
 
         if self.get_side((dir+2)) in ["forker", "cwforker", "triforker"]:
-
-            # Fork CW
-            new_cell_1: Cell = origin.copy()
-            temp = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+1), 0)
-            dx1, dy1 = temp[3]
-            ddir = temp[2]
-            new_cell_1.tile_x = self.tile_x+dx1
-            new_cell_1.tile_y = self.tile_y+dy1
-            new_cell_1.rot(1+ddir)
-            if force_type == 0:
+            if force_type == "push" and dir == self.dir:
                 self.push((dir+1), False, force=1)
-            if (self.tile_x+dx1, self.tile_y+dy1) not in cell_map.keys():
-                if origin.id:
-                    cell_map[self.tile_x+dx1, self.tile_y+dy1] = new_cell_1
-                new_cell_1.suppressed = suppress
-                foo = increment_with_divergers(self.game, temp[0], temp[1], temp[4])
-                if (foo[0], foo[1]) in cell_map.keys():
-                    cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_1)
-            elif "forker" in cell_map[self.tile_x+dx1, self.tile_y+dy1].get_side((dir+3+ddir)):
-                cell_map[self.tile_x+dx1, self.tile_y+dy1].on_force((dir+1+ddir)%4, new_cell_1, suppress=suppress, force_type=force_type)
-                del new_cell_1
-            else:
-                cell_map[self.tile_x+dx1, self.tile_y+dy1].on_force((dir+1+ddir), new_cell_1)
+            elif force_type == "nudge" and dir == self.dir:
+                # Fork CW
+                new_cell_1: Cell = origin.copy()
+                temp = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+1), 0)
+                dx1, dy1 = temp[3]
+                ddir = temp[2]
+                new_cell_1.tile_x = self.tile_x+dx1
+                new_cell_1.tile_y = self.tile_y+dy1
+                new_cell_1.rot(1+ddir)
+
+                if (self.tile_x+dx1, self.tile_y+dy1) not in cell_map.keys():
+                    if origin.id:
+                        cell_map[self.tile_x+dx1, self.tile_y+dy1] = new_cell_1
+                    new_cell_1.suppressed = suppress
+                    foo = increment_with_divergers(self.game, temp[0], temp[1], temp[4])
+                    if (foo[0], foo[1]) in cell_map.keys():
+                        cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_1)
+                elif "forker" in cell_map[self.tile_x+dx1, self.tile_y+dy1].get_side((dir+3+ddir)):
+                    cell_map[self.tile_x+dx1, self.tile_y+dy1].on_force((dir+1+ddir)%4, new_cell_1, suppress=suppress, force_type=force_type)
+                    del new_cell_1
+                else:
+                    cell_map[self.tile_x+dx1, self.tile_y+dy1].on_force((dir+1+ddir), new_cell_1)
 
         if self.get_side((dir+2)) in ["forker", "ccwforker", "triforker"]:
             # Fork CCW
-            new_cell_2: Cell = origin.copy()
-            temp = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir-1)%4, 0)
-            dx2, dy2 = temp[3]
-            ddir = temp[2]
-            new_cell_2.tile_x = self.tile_x+dx2
-            new_cell_2.tile_y = self.tile_y+dy2
-            new_cell_2.rot(-1+ddir)
-            if force_type == 0:
+            if force_type == "push" and dir == self.dir:
                 self.push((dir-1)%4, False, force=1)
-            if (self.tile_x+dx2, self.tile_y+dy2) not in cell_map.keys():
-                if origin.id:
-                    cell_map[self.tile_x+dx2, self.tile_y+dy2] = new_cell_2
-                new_cell_2.suppressed = suppress
-                foo = increment_with_divergers(self.game, temp[0], temp[1], temp[4])
-                if (foo[0], foo[1]) in cell_map.keys():
-                    cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_2)
-            elif "forker" in cell_map[self.tile_x+dx2, self.tile_y+dy2].get_side((dir+1+ddir)%4):
-                cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+3+ddir)%4, new_cell_2, suppress=suppress, force_type=force_type)
-                del new_cell_2
-            else:
-                cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+3+ddir)%4, new_cell_2)
+            elif force_type == "nudge" and dir == self.dir:
+                new_cell_2: Cell = origin.copy()
+                temp = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir-1)%4, 0)
+                dx2, dy2 = temp[3]
+                ddir = temp[2]
+                new_cell_2.tile_x = self.tile_x+dx2
+                new_cell_2.tile_y = self.tile_y+dy2
+                new_cell_2.rot(-1+ddir)
+
+                if (self.tile_x+dx2, self.tile_y+dy2) not in cell_map.keys():
+                    if origin.id:
+                        cell_map[self.tile_x+dx2, self.tile_y+dy2] = new_cell_2
+                    new_cell_2.suppressed = suppress
+                    foo = increment_with_divergers(self.game, temp[0], temp[1], temp[4])
+                    if (foo[0], foo[1]) in cell_map.keys():
+                        cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_2)
+                elif "forker" in cell_map[self.tile_x+dx2, self.tile_y+dy2].get_side((dir+1+ddir)%4):
+                    cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+3+ddir)%4, new_cell_2, suppress=suppress, force_type=force_type)
+                    del new_cell_2
+                else:
+                    cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+3+ddir)%4, new_cell_2)
 
         
 
         if self.get_side((dir+2)) in ["cwdivider", "ccwdivider", "tridivider"]:
-            new_cell_3: Cell = origin.copy()
-            temp = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir, 0)
-            dx3, dy3 = temp[3]
-            ddir = temp[2]
-            new_cell_3.rot(ddir)
-            new_cell_3.tile_x = self.tile_x+dx3
-            new_cell_3.tile_y = self.tile_y+dy3
-            if force_type == 0:
+            if force_type == "push" and self.dir == dir:
                 self.push((dir), False, force=1)
-            if (self.tile_x+dx3, self.tile_y+dy3) not in cell_map.keys():
-                cell_map[self.tile_x+dx3, self.tile_y+dy3] = new_cell_3
-                new_cell_3.suppressed = suppress
-                foo = increment_with_divergers(self.game, temp[0], temp[1], temp[4])
-                if (foo[0], foo[1]) in cell_map.keys():
-                    cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_3)
-            elif "divider" in cell_map[self.tile_x+dx3, self.tile_y+dy3].get_side((dir+2+ddir)):
-                cell_map[self.tile_x+dx3, self.tile_y+dy3].on_force((dir+ddir), new_cell_3, suppress=suppress, force_type=force_type)
-                del new_cell_3
-            else:
-                cell_map[self.tile_x+dx3, self.tile_y+dy3].on_force((dir+ddir), new_cell_3, suppress=suppress)
+            elif force_type == "nudge" and self.dir == dir:
+                new_cell_3: Cell = origin.copy()
+                temp = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir, 0)
+                dx3, dy3 = temp[3]
+                ddir = temp[2]
+                new_cell_3.rot(ddir)
+                new_cell_3.tile_x = self.tile_x+dx3
+                new_cell_3.tile_y = self.tile_y+dy3
+                    
+                if (self.tile_x+dx3, self.tile_y+dy3) not in cell_map.keys():
+                    cell_map[self.tile_x+dx3, self.tile_y+dy3] = new_cell_3
+                    new_cell_3.suppressed = suppress
+                    foo = increment_with_divergers(self.game, temp[0], temp[1], temp[4])
+                    if (foo[0], foo[1]) in cell_map.keys():
+                        cell_map[foo[0], foo[1]].on_force(foo[4], new_cell_3)
+                elif "divider" in cell_map[self.tile_x+dx3, self.tile_y+dy3].get_side((dir+2+ddir)):
+                    cell_map[self.tile_x+dx3, self.tile_y+dy3].on_force((dir+ddir), new_cell_3, suppress=suppress, force_type=force_type)
+                    del new_cell_3
+                else:
+                    cell_map[self.tile_x+dx3, self.tile_y+dy3].on_force((dir+ddir), new_cell_3, suppress=suppress)
 
         if self.get_side((dir+2)) in ["divider", "cwdivider", "tridivider"]:
 
@@ -693,19 +804,50 @@ class Cell():
                 cell_map[self.tile_x+dx2, self.tile_y+dy2].on_force((dir+3+ddir)%4, new_cell_2)
             
 
-        if self.demolishes:
+        match self.extra_properties.get("demolishes"):
+            case "ortho":
+                for i in range(4):
+                    dx, dy = get_deltas(i)
+                    if (self.tile_x + dx, self.tile_y + dy) in cell_map.keys():
+                        temp_cell: Cell = cell_map[self.tile_x + dx, self.tile_y + dy]
+                        if temp_cell.get_side_by_delta(dx, dy) not in ["wall", "trash"]:
+                            if dir != (i+2)%4:
+                                del cell_map[self.tile_x + dx, self.tile_y + dy] 
+            case "mega":
+                for i in range(-1, 2):
+                    for j in range(-1, 2):
+                        if i == 0 and j == 0:
+                            continue
+                        if (self.tile_x + i, self.tile_y + j) in cell_map.keys():
+                            temp_cell: Cell = cell_map[self.tile_x + i, self.tile_y + j]
+                            if temp_cell.get_side_by_delta(i, j) not in ["wall", "trash"]:
+                                del cell_map[self.tile_x + i, self.tile_y + j]
+
+    def on_effect(self, effect):
+        if self.extra_properties.get("transmitter"):
             for i in range(4):
                 dx, dy = get_deltas(i)
-                if (self.tile_x + dx, self.tile_y + dy) in cell_map.keys():
-                    temp_cell: Cell = cell_map[self.tile_x + dx, self.tile_y + dy]
-                    if temp_cell.get_side_by_delta(dx, dy) not in ["wall", "trash"]:
-                        if dir != (i+2)%4:
-                            del cell_map[self.tile_x + dx, self.tile_y + dy] 
+                if (self.tile_x + dx, self.tile_y + dy) in self.game.cell_map.keys():
+                    temp_cell: Cell = self.game.cell_map[self.tile_x + dx, self.tile_y + dy]
+                    self.apply_effect(dx, dy, effect)
+        if self.infects[0] != "":
+            del self.game.cell_map[self.tile_x, self.tile_y]
+
+
+    def on_rot(self, dir):
+        if self.extra_properties.get("transmitter") and not self.suppressed:
+            for i in range(4):
+                dx, dy = get_deltas(i)
+                if (self.tile_x + dx, self.tile_y + dy) in self.game.cell_map.keys():
+                    temp_cell: Cell = self.game.cell_map[self.tile_x + dx, self.tile_y + dy]
+                    if self.extra_properties.get("transmitter"):
+                        self.suppressed = True
+                    temp_cell.rot(dir)
 
             
 
     def set_id(self, id: int | str) -> None:
-        '''Setter to set the id, while changing the image'''
+        '''Setter to set the id, while changing the image and properties'''
         self.id = id
         self.image = cell_images[self.id]
         self.name = cell_names[self.id]
@@ -717,10 +859,10 @@ class Cell():
         # Unpushable / Unpullable: cannot be forced in the OPPOSITE direection
 
         # Sides
-        self.left: str = "pushable" # Set the left side to pushable
-        self.right: str = "pushable" # Set the right side to pushable
-        self.top: str = "pushable" # Set the top side to pushable
-        self.bottom: str = "pushable" # Set the bottom side to pushable
+        self.left: Side = Side(["pushable"]) # Set the left side to pushable
+        self.right: Side = Side(["pushable"]) # Set the right side to pushable
+        self.top: Side = Side(["pushable"]) # Set the top side to pushable
+        self.bottom: Side = Side(["pushable"]) # Set the bottom side to pushable
 
         self.br = "pushable"
         self.bl = "pushable"
@@ -731,6 +873,7 @@ class Cell():
         self.hp: int = 1 # Set the hp to 1
         self.generation: str | int = "normal" # Set the generation to normal
         self.weight = 1 # Set the weight to 1
+        self.rotatable = True
 
         # Push/pull variables
         self.pushes = False # Set the pushes flag to False
@@ -740,10 +883,14 @@ class Cell():
         self.ccwgrabs = False
         #self.swaps = False # Set the swaps flag to False
         self.gears = 0 # Set the gears flag to False
+        self.minigears = 0
+        self.skewgears = 0
         self.demolishes = False
         self.nudges = False
         self.mirrors = []
         self.bobs = False
+        self.lifes = False
+        self.infects = ("", "", 0)
 
         # Flags
         self.suppressed = False # Set the suppressed flag to False
@@ -754,79 +901,83 @@ class Cell():
 
         self.tags = {"enemy": False, "ally": False, "neutral": False, "fiend": False}
 
+        self.extra_properties = {}
+
         match self.id:
             case 1:
-                self.left = "wall"
-                self.right = "wall"
-                self.top = "wall"
-                self.bottom = "wall"
+                self.left = Side(["wall"])
+                self.right = Side(["wall"])
+                self.top = Side(["wall"])
+                self.bottom = Side(["wall"])
+                self.br = "wall"
+                self.bl = "wall"
+                self.tl = "wall"
+                self.tr = "wall"
             case 2:
                 self.pushes = True
                 self.chirality = [0]
             case 3:
-                self.right = "generator"
+                self.right = Side(["generator"])
                 self.chirality = [0]
             case 4:
-                # just a pushable
-                pass
+                pass  # just a pushable
             case 5:
-                self.top = "undirectional"
-                self.bottom = "undirectional"
+                self.top = Side(["undirectional"])
+                self.bottom = Side(["undirectional"])
                 self.chirality = [0, 2]
             case 6:
-                self.top = "undirectional"
-                self.bottom = "undirectional"
-                self.left = "undirectional"
+                self.top = Side(["undirectional"])
+                self.bottom = Side(["undirectional"])
+                self.left = Side(["undirectional"])
                 self.chirality = [0]
             case 7:
-                self.bottom = "undirectional"
-                self.left = "undirectional"
+                self.bottom = Side(["undirectional"])
+                self.left = Side(["undirectional"])
                 self.chirality = [-1]
             case 8:
-                self.left = "undirectional"
+                self.left = Side(["undirectional"])
                 self.chirality = [0]
             case 9:
-                self.top = "cwrotator"
-                self.right = "cwrotator"
-                self.bottom = "cwrotator"
-                self.left = "cwrotator"
+                self.top = Side(["cwrotator"])
+                self.right = Side(["cwrotator"])
+                self.bottom = Side(["cwrotator"])
+                self.left = Side(["cwrotator"])
             case 10:
-                self.top = "ccwrotator"
-                self.right = "ccwrotator"
-                self.bottom = "ccwrotator"
-                self.left = "ccwrotator"
+                self.top = Side(["ccwrotator"])
+                self.right = Side(["ccwrotator"])
+                self.bottom = Side(["ccwrotator"])
+                self.left = Side(["ccwrotator"])
             case 11:
-                self.top = "180rotator"
-                self.right = "180rotator"
-                self.bottom = "180rotator"
-                self.left = "180rotator"
+                self.top = Side(["180rotator"])
+                self.right = Side(["180rotator"])
+                self.bottom = Side(["180rotator"])
+                self.left = Side(["180rotator"])
             case 12:
-                self.left = "trash"
-                self.right = "trash"
-                self.top = "trash"
-                self.bottom = "trash"
+                self.left = Side(["trash"])
+                self.right = Side(["trash"])
+                self.top = Side(["trash"])
+                self.bottom = Side(["trash"])
             case 13:
-                self.left = "enemy"
-                self.right = "enemy"
-                self.top = "enemy"
-                self.bottom = "enemy"
+                self.left = Side(["enemy"])
+                self.right = Side(["enemy"])
+                self.top = Side(["enemy"])
+                self.bottom = Side(["enemy"])
                 self.tags["enemy"] = True
             case 14:
                 self.pulls = True
                 self.chirality = [0]
             case 15:
-                #self.swaps = True
                 self.chirality = [0, 2]
                 self.mirrors = [(0, 4)]
             case 16:
-                self.right = "ccwdiverger"
-                self.bottom = "cwdiverger"
+                self.right = Side(["ccwdiverger"])
+                self.bottom = Side(["cwdiverger"])
                 self.chirality = [-1]
             case 17:
-                self.right = "redirector"
-                self.bottom = "redirector"
-                self.top = "redirector"
-                self.left = "redirector"
+                self.right = Side(["redirector"])
+                self.bottom = Side(["redirector"])
+                self.top = Side(["redirector"])
+                self.left = Side(["redirector"])
                 self.chirality = [0]
             case 18:
                 self.gears = 1
@@ -835,150 +986,151 @@ class Cell():
             case 20:
                 self.generation = 0
             case 21:
-                self.left = "repulse"
-                self.right = "repulse"
-                self.top = "repulse"
-                self.bottom = "repulse"
+                self.left = Side(["repulse"])
+                self.right = Side(["repulse"])
+                self.top = Side(["repulse"])
+                self.bottom = Side(["repulse"])
             case 22:
-                self.left = "weight"
-                self.right = "weight"
-                self.top = "weight"
-                self.bottom = "weight"
+                self.left = Side(["weight"])
+                self.right = Side(["weight"])
+                self.top = Side(["weight"])
+                self.bottom = Side(["weight"])
             case 23:
-                self.right = "generator"
-                self.top = "generator"
+                self.right = Side(["generator"])
+                self.top = Side(["generator"])
                 self.chirality = [1]
             case 24:
-                self.left = "enemy"
-                self.right = "enemy"
-                self.top = "enemy"
-                self.bottom = "enemy"
+                self.left = Side(["enemy"])
+                self.right = Side(["enemy"])
+                self.top = Side(["enemy"])
+                self.bottom = Side(["enemy"])
                 self.hp = 2
                 self.tags["enemy"] = True
             case 25:
-                self.right = "freezer"
-                self.top = "freezer"
-                self.left = "freezer"
-                self.bottom = "freezer"
+                self.right = Side(["freezer"])
+                self.top = Side(["freezer"])
+                self.left = Side(["freezer"])
+                self.bottom = Side(["freezer"])
             case 26:
-                self.right = "cwgenerator"
+                self.right = Side(["cwgenerator"])
                 self.chirality = [0]
             case 27:
-                self.right = "ccwgenerator"
+                self.right = Side(["ccwgenerator"])
                 self.chirality = [0]
             case 28:
                 self.pushes = True
                 self.pulls = True
                 self.chirality = [0]
             case 29:
-                self.right = "impulse"
-                self.top = "impulse"
-                self.left = "impulse"
-                self.bottom = "impulse"
+                self.right = Side(["impulse"])
+                self.top = Side(["impulse"])
+                self.left = Side(["impulse"])
+                self.bottom = Side(["impulse"])
             case 30:
-                self.right = "flipper"
-                self.top = "flipper"
-                self.left = "flipper"
-                self.bottom = "flipper"
+                self.right = Side(["flipper"])
+                self.top = Side(["flipper"])
+                self.left = Side(["flipper"])
+                self.bottom = Side(["flipper"])
                 self.chirality = [0, 2]
             case 31:
-                self.right = "ccwdiverger"
-                self.bottom = "cwdiverger"
-                self.top = "cwdiverger"
-                self.left = "ccwdiverger"
+                self.right = Side(["ccwdiverger"])
+                self.bottom = Side(["cwdiverger"])
+                self.top = Side(["cwdiverger"])
+                self.left = Side(["ccwdiverger"])
                 self.chirality = [1]
             case 32 | 33 | 34 | 35 | 36 | 37:
-                self.left = "undirectional"
-                self.right = "undirectional"
-                self.top = "trash"
-                self.bottom = "trash"
+                self.left = Side(["undirectional"])
+                self.right = Side(["undirectional"])
+                self.top = Side(["trash"])
+                self.bottom = Side(["trash"])
                 self.chirality = [0]
             case 38:
-                self.right = "diverger"
-                self.left = "diverger"
+                self.right = Side(["diverger"])
+                self.left = Side(["diverger"])
                 self.chirality = [0, 2]
             case 39:
-                self.right = "diverger"
-                self.bottom = "diverger"
-                self.left = "diverger"
-                self.top = "diverger"
+                self.right = Side(["diverger"])
+                self.bottom = Side(["diverger"])
+                self.left = Side(["diverger"])
+                self.top = Side(["diverger"])
             case 40:
-                self.right = "twistgenerator"
+                self.right = Side(["generator", "twistgenerator"])
                 self.chirality = [0]
             case 41:
-                self.left = "wall"
-                self.right = "wall"
-                self.top = "wall"
-                self.bottom = "wall"
-                self.generation = "ghost"
+                self.left = Side(["wall"])
+                self.right = Side(["wall"])
+                self.top = Side(["wall"])
+                self.bottom = Side(["wall"])
+                self.br = "wall"
+                self.bl = "wall"
+                self.tl = "wall"
+                self.tr = "wall"
+                self.generation = ["ghost"]
             case 42:
-                self.left = "antiweight"
-                self.right = "weight"
+                self.left = Side(["antiweight"])
+                self.right = Side(["weight"])
                 self.chirality = [0]
             case 43:
-                self.right = "shield"
-                self.top = "shield"
-                self.left = "shield"
-                self.bottom = "shield"
+                self.extra_properties["shield"] = (1, "moore")
             case 44:
-                self.right = "intaker"
+                self.right = Side(["intaker", "trash"])
                 self.chirality = [0]
             case 45:
-                self.right = "replicator"
+                self.right = Side(["replicator"])
                 self.chirality = [0]
             case 46:
-                self.right = "replicator"
-                self.top = "replicator"
+                self.right = Side(["replicator"])
+                self.top = Side(["replicator"])
                 self.chirality = [1]
             case 47:
-                self.right = "fungal"
-                self.top = "fungal"
-                self.left = "fungal"
-                self.bottom = "fungal"
+                self.right = Side(["fungal"])
+                self.top = Side(["fungal"])
+                self.left = Side(["fungal"])
+                self.bottom = Side(["fungal"])
             case 48:
-                self.left = "forker"
+                self.left = Side(["forker"])
                 self.chirality = [0]
             case 49:
-                self.left = "triforker"
+                self.left = Side(["triforker"])
                 self.chirality = [0]
             case 50:
-                self.left = "superrepulse"
-                self.right = "superrepulse"
-                self.top = "superrepulse"
-                self.bottom = "superrepulse"
+                self.left = Side(["superrepulse"])
+                self.right = Side(["superrepulse"])
+                self.top = Side(["superrepulse"])
+                self.bottom = Side(["superrepulse"])
             case 51:
-                self.left = "trash"
-                self.right = "trash"
-                self.top = "trash"
-                self.bottom = "trash"
-                self.demolishes = True
+                self.left = Side(["trash"])
+                self.right = Side(["trash"])
+                self.top = Side(["trash"])
+                self.bottom = Side(["trash"])
+                self.extra_properties["demolishes"] = "ortho"
             case 52:
-                self.left = "unpushable"
-                self.right = "unpullable"
-                self.top = "undirectional"
-                self.bottom = "undirectional"
+                self.left = Side(["unpushable", "ungrabbable"])
+                self.right = Side(["unpullable", "ungrabbable"])
+                self.top = Side(["unpushable", "unpullable"])
+                self.bottom = Side(["unpushable", "unpullable"])
                 self.chirality = [0]
             case 53:
-                self.left = "unpushable"
-                self.right = "unpullable"
-                self.bottom = "unpushable"
-                self.top = "unpullable"
+                self.left = Side(["unpushable"])
+                self.right = Side(["unpullable"])
+                self.bottom = Side(["unpushable"])
+                self.top = Side(["unpullable"])
                 self.chirality = [1]
             case 54:
-                self.left = "unpushable"
-                self.right = "unpullable"
+                self.left = Side(["unpushable"])
+                self.right = Side(["unpullable"])
                 self.chirality = [0]
             case 55:
-                self.right = "supergenerator"
+                self.right = Side(["supergenerator"])
                 self.chirality = [0]
             case 56:
                 self.mirrors = [(0, 4), (2, 6)]
                 self.chirality = [0, 1, 2, 3]
             case 57:
-                self.right = "cwrotator"
-                self.bottom = "cwrotator"
-                self.left = "ccwrotator"
-                self.top = "ccwrotator"
+                self.right = Side(["cwrotator"])
+                self.bottom = Side(["cwrotator"])
+                self.left = Side(["ccwrotator"])
+                self.top = Side(["ccwrotator"])
                 self.chirality = [3]
             case 58:
                 self.drills = True
@@ -997,43 +1149,47 @@ class Cell():
                 self.pulls = True
                 self.chirality = [0]
             case 62:
-                self.right = "outdirector"
-                self.bottom = "outdirector"
-                self.left = "outdirector"
-                self.top = "outdirector"
+                self.right = Side(["outdirector"])
+                self.bottom = Side(["outdirector"])
+                self.left = Side(["outdirector"])
+                self.top = Side(["outdirector"])
             case 63:
-                self.right = "indirector"
-                self.bottom = "indirector"
-                self.left = "indirector"
-                self.top = "indirector"
+                self.right = Side(["indirector"])
+                self.bottom = Side(["indirector"])
+                self.left = Side(["indirector"])
+                self.top = Side(["indirector"])
             case 64:
-                self.right = "cwdirector"
-                self.bottom = "cwdirector"
-                self.left = "cwdirector"
-                self.top = "cwdirector"
+                self.right = Side(["cwdirector"])
+                self.bottom = Side(["cwdirector"])
+                self.left = Side(["cwdirector"])
+                self.top = Side(["cwdirector"])
             case 65:
-                self.right = "ccwdirector"
-                self.bottom = "ccwdirector"
-                self.left = "ccwdirector"
-                self.top = "ccwdirector"
+                self.right = Side(["ccwdirector"])
+                self.bottom = Side(["ccwdirector"])
+                self.left = Side(["ccwdirector"])
+                self.top = Side(["ccwdirector"])
             case 66:
-                self.left = "cwrotator"
-                self.right = "cwrotator"
+                self.left = Side(["cwrotator"])
+                self.right = Side(["cwrotator"])
             case 67:
-                self.left = "ccwrotator"
-                self.right = "ccwrotator"
+                self.left = Side(["ccwrotator"])
+                self.right = Side(["ccwrotator"])
             case 68:
-                self.left = "180rotator"
-                self.right = "180rotator"
+                self.left = Side(["180rotator"])
+                self.right = Side(["180rotator"])
             case 69:
-                self.top = "wall"
-                self.bottom = "wall"
+                self.top = Side(["wall"])
+                self.bottom = Side(["wall"])
+                self.br = "wall"
+                self.bl = "wall"
+                self.tl = "wall"
+                self.tr = "wall"
                 self.chirality = [0, 2]
             case 70:
-                self.right = "cwrotator"
-                self.left = "cwrotator"
-                self.bottom = "ccwrotator"
-                self.top = "ccwrotator"
+                self.right = Side(["cwrotator"])
+                self.left = Side(["cwrotator"])
+                self.bottom = Side(["ccwrotator"])
+                self.top = Side(["ccwrotator"])
                 self.chirality = [0, 2]
             case 71:
                 self.cwgrabs = True
@@ -1072,103 +1228,266 @@ class Cell():
                 self.pulls = True
                 self.pushes = True
             case 79:
-                self.left = "ice"
-                self.top = "ice"
-                self.right = "ice"
-                self.bottom = "ice"
+                self.left = Side(["ice"])
+                self.top = Side(["ice"])
+                self.right = Side(["ice"])
+                self.bottom = Side(["ice"])
             case 80:
                 self.mirrors = [(0, 4), (1, 5), (2, 6), (3, 7)]
             case 81:
-                self.top = "cwgrapulse"
-                self.right = "cwgrapulse"
-                self.bottom = "cwgrapulse"
-                self.left = "cwgrapulse"
+                self.top = Side(["cwgrapulse"])
+                self.right = Side(["cwgrapulse"])
+                self.bottom = Side(["cwgrapulse"])
+                self.left = Side(["cwgrapulse"])
             case 82: 
-                self.top = "ccwgrapulse"
-                self.right = "ccwgrapulse"
-                self.bottom = "ccwgrapulse"
-                self.left = "ccwgrapulse"
+                self.top = Side(["ccwgrapulse"])
+                self.right = Side(["ccwgrapulse"])
+                self.bottom = Side(["ccwgrapulse"])
+                self.left = Side(["ccwgrapulse"])
             case 83: 
-                self.top = "ccwdiverger"
-                self.left = "diverger"
-                self.bottom = "cwdiverger"
+                self.top = Side(["ccwdiverger"])
+                self.left = Side(["diverger"])
+                self.bottom = Side(["cwdiverger"])
             case 84:
-                self.left = "diverger"
-                self.right = "diverger"
-                self.top = "cwdiverger"
-                self.bottom = "cwdiverger"
+                self.left = Side(["diverger"])
+                self.right = Side(["diverger"])
+                self.top = Side(["cwdiverger"])
+                self.bottom = Side(["cwdiverger"])
             case 85:
-                self.left = "diverger"
-                self.right = "diverger"
-                self.bottom = "ccwdiverger"
-                self.top = "ccwdiverger"
+                self.left = Side(["diverger"])
+                self.right = Side(["diverger"])
+                self.bottom = Side(["ccwdiverger"])
+                self.top = Side(["ccwdiverger"])
             case 86: 
-                self.left = "displacer"
-                self.right = "displacer"
-                self.top = "ccwdisplacer"
-                self.left = "displacer"
-                self.bottom = "cwdisplacer"
+                self.left = Side(["displacer"])
+                self.right = Side(["displacer"])
+                self.top = Side(["ccwdisplacer"])
+                self.bottom = Side(["cwdisplacer"])
             case 87:
-                self.left = "displacer"
-                self.right = "displacer"
-                self.top = "cwdisplacer"
-                self.bottom = "cwdisplacer"
+                self.left = Side(["displacer"])
+                self.right = Side(["displacer"])
+                self.top = Side(["cwdisplacer"])
+                self.bottom = Side(["cwdisplacer"])
             case 88:
-                self.left = "displacer"
-                self.right = "displacer"
-                self.bottom = "ccwdisplacer"
-                self.top = "ccwdisplacer"
+                self.left = Side(["displacer"])
+                self.right = Side(["displacer"])
+                self.bottom = Side(["ccwdisplacer"])
+                self.top = Side(["ccwdisplacer"])
             case 89:
-                self.left = "flipper"
-                self.right = "flipper"
+                self.left = Side(["flipper"])
+                self.right = Side(["flipper"])
             case 90:
-                self.top = "flipper"
-                self.right = "flipper"
-
+                self.top = Side(["flipper"])
+                self.right = Side(["flipper"])
             case 91:
-                self.bottom = "cwdisplacer"
-                self.right = "ccwdisplacer"
+                self.bottom = Side(["cwdisplacer"])
+                self.right = Side(["ccwdisplacer"])
             case 92:
-                self.bottom = "cwdisplacer"
-                self.right = "ccwdisplacer"
-                self.top = "cwdisplacer"
-                self.left = "ccwdisplacer"
+                self.bottom = Side(["cwdisplacer"])
+                self.right = Side(["ccwdisplacer"])
+                self.top = Side(["cwdisplacer"])
+                self.left = Side(["ccwdisplacer"])
             case 93:
-                self.left = "diverger"
-                self.bottom = "cwdiverger"
+                self.left = Side(["diverger"])
+                self.bottom = Side(["cwdiverger"])
             case 94:
-                self.left = "diverger"
-                self.top = "ccwdiverger"
+                self.left = Side(["diverger"])
+                self.top = Side(["ccwdiverger"])
             case 95:
-                self.left = "displacer"
-                self.bottom = "cwdisplacer"
+                self.left = Side(["displacer"])
+                self.bottom = Side(["cwdisplacer"])
             case 96:
-                self.left = "displacer"
-                self.top = "ccwdisplacer"
+                self.left = Side(["displacer"])
+                self.top = Side(["ccwdisplacer"])
             case 97:
-                self.left = "cwforker"
+                self.left = Side(["cwforker"])
             case 98:
-                self.left = "ccwforker"
+                self.left = Side(["ccwforker"])
             case 99:
-                self.left = "divider"
+                self.left = Side(["divider"])
             case 100:
-                self.left = "tridivider"
+                self.left = Side(["tridivider"])
             case 101:
-                self.left = "cwdivider"
+                self.left = Side(["cwdivider"])
             case 102:
-                self.left = "ccwdivider"
+                self.left = Side(["ccwdivider"])
+            case 103:
+                self.extra_properties["conditional"] = True
+            case 104:
+                self.left = Side(["antiweight"])
+                self.right = Side(["antiweight"])
+                self.top = Side(["antiweight"])
+                self.bottom = Side(["antiweight"])
+            case 105:
+                self.extra_properties["transmitter"] = True
+            case 106:
+                self.right = Side(["shifter"])
+            case 107:
+                self.right = Side(["shifter"])
+                self.top = Side(["shifter"])
+            case 108:
+                self.minigears = 1
+            case 109:
+                self.minigears = -1
+            case 110:
+                self.right = Side(["cwgenerator", "cloner"])
+            case 111:
+                self.right = Side(["ccwgenerator", "cloner"])
+            case 112:
+                pass
+            case 113:
+                self.right = Side(["generator", "redirectgenerator"])
             case 114:
                 self.nudges = True
+            case 115:
+                self.slices = True
+            case 116 | 117 | 118 | 119 | 120 | 121 | 122:
+                self.hp = 0
+                self.left = Side(["enemy"])
+                self.right = Side(["enemy"])
+                self.top = Side(["enemy"])
+                self.bottom = Side(["enemy"])
+                self.generation = "ghost"
+                self.rotatable = False
+            case 123:
+                self.infects = ("adj", "cells", 1)
+            case 124:
+                self.infects = ("skw", "cells", 1)
+            case 125:
+                self.infects = ("sur", "cells", 1)
+            case 126:
+                self.right = Side(["fungal", "wall"])
+                self.left = Side(["fungal", "wall"])
+                self.top = Side(["fungal", "wall"])
+                self.bottom = Side(["fungal", "wall"])
+                self.br = "wall"
+                self.bl = "wall"
+                self.tl = "wall"
+                self.tr = "wall"
+            case 127:
+                self.infects = ("adj", "all", 1)
+            case 128:
+                self.infects = ("adj", "air", 1)
+            case 129:
+                self.infects = ("skw", "all", 1)
+            case 130:
+                self.infects = ("skw", "air", 1)
+            case 131:
+                self.infects = ("sur", "all", 1)
+            case 132:
+                self.infects = ("sur", "air", 1)
+            case 133:
+                self.infects = ("adj", "air", 0.5)
+            case 134:
+                self.infects = ("adj", "cells", 0.5)
+            case 135:
+                self.infects = ("adj", "all", 0.5)
+            case 136:
+                self.left = Side(["pushclamper"])
+                self.right = Side(["pushclamper"])
+                self.top = Side(["pushclamper"])
+                self.bottom = Side(["pushclamper"])
+            case 137:
+                self.left = Side(["pullclamper"])
+                self.right = Side(["pullclamper"])
+                self.top = Side(["pullclamper"])
+                self.bottom = Side(["pullclamper"])
+            case 138:
+                self.left = Side(["grabclamper"])
+                self.right = Side(["grabclamper"])
+                self.top = Side(["grabclamper"])
+                self.bottom = Side(["grabclamper"])
+            case 139:
+                self.left = Side(["swapclamper"])
+                self.right = Side(["swapclamper"])
+                self.top = Side(["swapclamper"])
+                self.bottom = Side(["swapclamper"])
+            case 140:
+                self.right = Side(["wall"])
+                self.top = Side(["wall"])
+                self.bl, self.tl, self.br, self.tr = "wall", "wall", "wall", "wall"
+            case 141:
+                self.left, self.right, self.top, self.bottom = "trash", "trash", "trash", "trash"
+                self.extra_properties["demolishes"] = "mega"
+            case 142:
+                self.extra_properties["resistance"] = 1
+            case 143:
+                self.extra_properties["resistance"] = 1
+                self.extra_properties["tentative"] = True
+            case 144:
+                self.extra_properties["restrictance"] = 1
+            case 145:
+                self.extra_properties["shield"] = (2, "moore")
+            case 146:
+                self.right = Side(["timewarper"])
+            case 147:
+                self.right = Side(["timegenerator"])
+            case 148:
+                self.right = Side(["timewarper"])
+                self.top = Side(["timewarper"])
+            case 149:
+                self.lifes = True
+            case 150:
+                self.right = Side(["wall", "cwspinner"])
+                self.left = Side(["wall", "cwspinner"])
+                self.bottom = Side(["wall", "cwspinner"])
+                self.top = Side(["wall", "cwspinner"])
+            case 151:
+                self.right = Side(["wall", "ccwspinner"])
+                self.left = Side(["wall", "ccwspinner"])
+                self.bottom = Side(["wall", "ccwspinner"])
+                self.top = Side(["wall", "ccwspinner"])
+            case 152:
+                self.right = Side(["wall", "180spinner"])
+                self.left = Side(["wall", "180spinner"])
+                self.bottom = Side(["wall", "180spinner"])
+                self.top = Side(["wall", "180spinner"])
+            case 153:
+                self.extra_properties["key"] = True
+            case 154:
+                self.extra_properties["door"] = True
+                self.left = Side(["wall"])
+                self.right = Side(["wall"])
+                self.top = Side(["wall"])
+                self.bottom = Side(["wall"])
+            case 155:
+                self.top = Side(["intaker", "trash"])
+                self.right = Side(["intaker", "trash"])
+            case 156:
+                self.right = Side(["mag_s"])
+                self.left = Side(["mag_n"])
+            case 157:
+                self.right = Side(["wall"])
+                self.top = Side(["wall"])
+                self.bottom = Side(["wall"])
+                self.bl = self.tl = self.br = self.tr = "wall"
+            case 158:
+                self.right = Side(["wall"])
+                self.bl = self.tl = self.br = self.tr = "wall"
+            case 159:
+                self.bl = self.tl = self.br = self.tr = "wall"
             case 208:
-                self.left = "diverger"
+                self.left = Side(["diverger"])
                 self.chirality = [0]
             case 231:
-                self.left = "silicon"
-                self.top = "silicon"
-                self.right = "silicon"
-                self.bottom = "silicon"
+                self.left = Side(["silicon"])
+                self.top = Side(["silicon"])
+                self.right = Side(["silicon"])
+                self.bottom = Side(["silicon"])
+            case 269:
+                self.pushes = True
+                self.slices = True
+            case 270:
+                self.pulls = True
+                self.slices = True
+            case 272:
+                self.grabs = True
+                self.slices = True
+            case 276:
+                self.drills = True
+                self.slices = True
             case 1201:
-                self.right = "dextroanlevogenerator"
+                self.right = Side(["dextroanlevogenerator"])
             case "bob":
                 self.bobs = True
             case _:
@@ -1179,22 +1498,33 @@ class Cell():
         else:
             self.moves = False
 
-    def mexican_standoff(self, cell: Self):
+    def mexican_standoff(self, cell: Self, destroy=True):
+        '''Resolves a standoff between two cells. Returns False if the caller is destroyed'''
         if self.protected or cell.protected:
             return True
         dec_hp = min(self.hp, cell.hp)
-        self.hp -= dec_hp
-        cell.hp -= dec_hp
-        self.check_hp()
-        cell.check_hp()
-        self.game.play_destroy_sound = True
+        if destroy:
+            self.hp -= dec_hp
+            cell.hp -= dec_hp
 
-        if self.hp <= 0:
+            self.check_hp()
+            cell.check_hp()
+            self.game.play_destroy_sound = True
+
+        if self.hp <= (0 if destroy else cell.hp):
             return False
         return True
+    
+    def shift(self, dir: int) -> bool:
+        self.test_gen(dir, 0, endo=True)
+        self.test_intake((dir+2)%4)
+
+    def do_shift(self, dir: int) -> bool:
+        if self.get_side(dir) == "shifter":
+            self.shift(dir)
 
 
-    def push(self, dir: int, move: bool, hp: int = 1, force: int = 0, speed: int = 1, test: bool = False, active=True) -> bool | int:
+    def push(self, dir: int, move: bool, hp: int = 1, force: int = 0, speed: int = 1, test: bool = False, active=True, bypass_bias = False) -> bool | int:
         '''Tests a push, and returns False if failed'''
         cell_map = self.game.cell_map
         if self not in cell_map.values():
@@ -1214,63 +1544,68 @@ class Cell():
             old_x: int = self.tile_x
             old_y: int = self.tile_y
 
-            fx, fy, fdir, _, ppp = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir)                       
+            if not move:
+                bias += 0
+            if self.get_side(dir+2) == "repulse":
+                print("supple")
+                bias += 1
+
+
+            fx, fy, fdir, _, ppp = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir)   
+
+            if self.dir == dir and self.pushes:
+                self.suppressed = True                    
 
             if (fx, fy) in cell_map.keys():
                 cell = cell_map[fx, fy]
-                if cell.get_side((dir+fdir)) in ["wall", "undirectional", "unpushable"]:
-                    return False
+                if cell.get_side((dir+fdir)) in ["undirectional", "unpushable"]:
+                    cell_map[fx, fy].on_force(fdir, self)
+                    fail = True
                 if cell.get_side((dir+2)) in ["forker", "triforker", "cwforker", "ccwforker", "trash", "divider", "tridivider", "cwdivider", "ccwdivider"]:
                     trash_flag = True
-                if "enemy" in cell.get_side((dir+fdir+2)):
+                elif cell.get_side((dir+2)) in ["wall"]:
+                    cell_map[fx, fy].on_force(fdir, self)
+                    fail = True
+                if "enemy" in cell.get_side((dir+fdir+2)) and not cell.protected:
                     enemy_flag = True
             x = fx
             y = fy
             cell = self
             
-            bias = self.get_push_bias(dir, force)
-            if not move:
-                bias += 1
+            bias = (math.inf if bypass_bias else self.get_push_bias(dir, bias))
 
-            if self.dir == dir and move:
-                self.suppressed = True
+
+
 
             if bias <= 0:
-                return False
+                print(bias)
+                fail = True
             
             row = affected_cells[:]
 
-            if enemy_flag and not move:
-                cell = cell_map[fx, fy]
-                subtract_hp = min(cell.hp, hp)
-                cell.hp -= subtract_hp
-                cell_map[fx, fy].check_hp()
-                hp -= subtract_hp
             
             temp: list[Cell] = []
             for x, y, _, _, _ in row[1:]:
                 temp.append(cell_map[(x, y)])
 
-            if (fx, fy) in cell_map.keys() and not trash_flag and not enemy_flag:
+            if (fx, fy) in cell_map.keys():
+                cell_map[fx, fy].on_force(fdir, self, force_type="push")
+
+            if (fx, fy) in cell_map.keys() and not trash_flag and not enemy_flag and not cell_map[fx, fy].pushclamped and not fail:
 
                 try:
-                    result = cell_map[fx, fy].push(dir+fdir, True, force=math.inf, speed=speed, test=test, active=False)
-                    if not result:
-                        if test:
-                            return False
+                    result = cell_map[fx, fy].push(dir+fdir, True, force=math.inf, speed=speed, test=test, active=False, bypass_bias=True)
                     if result == (-1,):
                         qir = True
 
                 except RecursionError:
+                    print("E")
                     return False
-            if self.tile_x != old_x or self.tile_y != old_y:
-                if move and not test:
-                    if not self.push(dir, True):
-                        return False
-            else:
-                if move and not test:
-                    if not self.nudge(dir, True):
-                        return False
+
+
+            if move and not test:
+                if not self.nudge(dir, True):
+                    return False
 
             if killer_cell is not None:
                 return hp-killer_cell_hp
@@ -1286,11 +1621,29 @@ class Cell():
 
         return True
     
+    def slice(self, dir: int, move: bool, force: int = 1) -> bool:
+        incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir, 0)
+        fdir = incr[4]
+        if not self.nudge(dir, move):
+            if (self.tile_x, self.tile_y) not in self.game.cell_map.keys():
+                print("ee")
+                return False
+            front_cell: Cell = self.game.cell_map[incr[:2]]
+            if front_cell.get_side(fdir) in ["unpushable", "undirectional"] or front_cell.get_side((fdir+2)%4) in ["wall", "trash"] or front_cell.pushclamped:
+                return
+            if not front_cell.push((dir+1)%4, True, force=force):
+                if not front_cell.push((dir-1)%4, True, force=force):
+                    return False
+            self.nudge(dir, move)   
+
+        return True
+                
+    
         
 
     
-    def pull(self, dir: int, move: bool, force: int = 0, test: bool = False) -> bool:
-        '''Tests a pull, and returns False if failed'''
+    def pull(self, dir: int, move: bool, force: int = 0, test: bool = False, bypass_bias = False) -> bool:
+        '''Tests a pull, and returns False if failed. Uses the deprecated get_row method.'''
         cell_map = self.game.cell_map
         dx, dy = get_deltas(dir)
         push_flag = False
@@ -1307,128 +1660,67 @@ class Cell():
         if move:
             incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+2)%4, 2)
             back_cell_coord = incr[:2]
-            row, deltas, ddirs, fail = get_row(self.game, (self.tile_x, self.tile_y), (dir+2)%4, 2)
+            #row, deltas, ddirs, fail = get_row(self.game, (self.tile_x, self.tile_y), (dir+2)%4, 2)
         else:
             incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+2)%4, 2)
             back_cell_coord = incr[:2]
             starting_x, starting_y, dir_e, _, b = increment_with_divergers(self.game, back_cell_coord[0], back_cell_coord[1], (incr[4])%4, 2)
-            #print(incr)
-            #print(starting_x, starting_y)
+            ##print(.+?)incr)
+            ##print(.+?)starting_x, starting_y)
             
-            row, deltas, ddirs, fail = get_row(self.game, (starting_x, starting_y), (dir+2)%4, 2)
+            #row, deltas, ddirs, fail = get_row(self.game, (starting_x, starting_y), (dir+2)%4, 2)
         
-        row_cells = [cell_map[item[:2]] for item in row]
+        #row_cells = [cell_map[item[:2]] for item in row
             
         suicide_flag = False
         enemy_flag = False
         row_interrupt_flag = False
-        if move:
-            new_x, new_y, new_dir, delta, _ = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir, 0)
-            bias = force+int(self.pulls)
-            total_bias = force
-        else:
-            bias = force+1
-            total_bias = force+1
 
-        for i, cell in enumerate(row_cells):
-            if i != 0:
-                if cell.pushes and (cell.dir+2)%4 == row[i][4]:
-                    push_flag = True
+        new_x, new_y, new_dir, delta, _ = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir, 0)
+        bias = force
+        total_bias = force
+
+
+        
         if move:
             if (new_x, new_y) in cell_map.keys():
                 front_cell = cell_map[new_x, new_y]
-                if front_cell.pushes:
-                    push_flag = True
-                if "trash" in front_cell.get_side((dir+new_dir+2)%4) or "enemy" in front_cell.get_side((dir+new_dir+2)%4) or "forker" in front_cell.get_side((dir+new_dir+2)%4):
-                    killer_cell = (new_x, new_y)
-                    if move:
-                        suicide_flag = True
-                        if cell_map[killer_cell].id in [13, 24]:
-                            if not self.protected:
-                                enemy_flag = True
-                        cell_map[killer_cell].on_force(self.dir + new_dir, self, force_type=2)
-                else:
-                    if move:
-                        if (not (push_flag or front_cell.pushes)):
-                            return False
+
+        if self.get_side(dir+2) == "impulse":
+                print("supple")
+                bias += 1
+
+
+
         if increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+2)%4, 2)[:2] in cell_map.keys():
             if not move:
                 return False
-        for x, y, ddir, a, con_dir in row:
-            cell = cell_map[x, y]
-            affected.append((x, y, ddir, a, con_dir))
-            #cell = cell_map[x, y]
-            if (cell.pulls, cell.dir) == (True, (con_dir+2)%4):
-                total_bias += 1
-            if (cell.pulls, cell.dir) == (True, con_dir) and not cell.frozen:
-                total_bias -= 1
-            if cell.get_side((con_dir+2)%4) == "impulse":
-                total_bias -= 1
-            if cell.get_side((dir+2)%4) == "weight":
-                total_bias -= cell_map[x, y].weight
-            if cell.get_side((dir+2)%4) == "antiweight":
-                total_bias += cell_map[x, y].weight
-
-        
-
-        if len(row) > 1:
-            cell = cell_map[row[1][:2]]
-            if (cell.pulls, cell.dir) == (True, (con_dir+2)%4):
-                bias += 1
-            if (cell.pulls, cell.dir) == (True, con_dir) and not cell.frozen:
-                bias -= 1
-            if cell.get_side((con_dir+2)%4) == "impulse":
-                bias -= 1
-            if cell.get_side((dir+2)%4) == "weight":
-                bias -= cell_map[x, y].weight
-            if cell.get_side((dir+2)%4) == "antiweight":
-                bias += cell_map[x, y].weight
+            
+        total_bias = math.inf if bypass_bias else self.get_pull_bias(dir, bias)
+        #print(.+?)total_bias)
 
         if total_bias <= 0:
+            #print(.+?)"t")
             return False
 
-        if fail:
-            return False
-        if back_cell_coord in cell_map.keys():
-            cell_map[back_cell_coord].on_force((-affected[-1][4])%4, self, force_type=2)
-        if row_interrupt_flag:
-            
-            affected = affected[:-1]
-        row = affected[:]
-
-        if enemy_flag:
-            if cell_map[killer_cell].id == 24:
-                cell_map[killer_cell].set_id(13)
-            else:
-                del cell_map[killer_cell]
-        if bias <= 0:
-            return False
-        if fail and len(row) > 1:
-            return False
         
-        if push_flag:
-            if not self.push(dir, False):
-                pass
+
+
+
+        
+
                 #return False
-        if move:
-            if (new_x, new_y) in cell_map.keys() and not suicide_flag:
-                return False
+
         if self.moves and self.dir == dir:
             self.suppressed = True
         if move:
             if not self.nudge(dir, True):
-                return False
+                pass
         
         temp: list[Cell] = []
-        affected_cells = row[:]
-        if move:
-            if affected_cells:
-                del affected_cells[0]
 
-        if move:
-            pulled_cells = row[1:]
-        else:
-            pulled_cells = row
+
+
 
         #if move:
             #if len(temp) > 0:
@@ -1447,28 +1739,60 @@ class Cell():
                 if incr[:2] in cell_map.keys():
                     
                     if move:
-                        if cell_map[incr[:2]].get_side((dir+2)%4) not in ["wall", "trash", "enemy"] and cell_map[incr[:2]].get_side((dir)%4) not in ["unpullable", "undirectional"]:
-                            cell_map[incr[:2]].pull((row[1][4]+2)%4, True, force=bias)
+                        if cell_map[incr[:2]].get_side((dir)%4) not in ["wall", "trash", "enemy"] and cell_map[incr[:2]].get_side((dir)%4) not in ["unpullable", "undirectional"] and not cell_map[incr[:2]].pullclamped:
+                            cell_map[incr[:2]].pull((incr[4]+2)%4, True, force=bias, bypass_bias=True)
             else:
                 if (starting_x, starting_y) in cell_map.keys():
-                    if cell_map[starting_x, starting_y].get_side((dir+2)%4) not in ["wall", "trash", "enemy"] and cell_map[starting_x, starting_y].get_side((dir)%4) not in ["unpullable", "undirectional"]:
-                        cell_map[starting_x, starting_y].pull((b+2)%4, True, force=bias)
+                    if cell_map[starting_x, starting_y].get_side((dir)%4) not in ["wall", "trash", "enemy"] and cell_map[starting_x, starting_y].get_side((dir)%4) not in ["unpullable", "undirectional"]:
+                        if incr[2] not in cell_map.keys() or not cell_map[incr[:2]].pullclamped:
+                            cell_map[starting_x, starting_y].pull((b+2)%4, True, force=bias, bypass_bias = True)
 
 
         return True
     
-    def get_pull_bias(self, dir: int) -> int:
+    def get_weight(self, dir):
         pass
+    
+    def get_pull_bias(self, dir: int, force: int, times: int = -1, suppress: bool = True) -> int:
+        cell_map = self.game.cell_map
+        if times == 0:
+            return force
+        flag = False
+        bias = force
+        cell = self
+        incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+2)%4, force_type=0, displace=True)
+        if cell.pulls and (cell.dir)%4 == (dir)%4:
+            bias+=1
+        if cell.pulls and (cell.dir)%4 == (dir+2)%4:
+            bias -= 1
+
+        if cell.get_side((incr[4]+2)%4) == "impulse":
+            bias-=1
+        
+        bias = self.handle_weights(bias, dir)
+
+        if self.pulls and self.dir == dir:
+            cell.suppressed |= False
+
+
+
+        if incr[:2] not in cell_map.keys():
+            # Things that happen when the row breaks
+ 
+            return bias
+        bias = cell_map[incr[:2]].get_pull_bias((dir)%4, force=bias, times = times-1, suppress=suppress)
+        
+        return bias
     
     def test_swap(self, dx1, dy1, dx2, dy2) -> bool:
         '''0: horizontal, 1: neg-diag, 2: vertical, 3: pos-diag'''
         cell_map = self.game.cell_map
 
         if (self.tile_x + dx1, self.tile_y + dy1) in cell_map.keys():
-            if cell_map[(self.tile_x + dx1, self.tile_y + dy1)].get_side_by_delta(dx1, dy1) in ["wall", "trash", "enemy"] or cell_map[(self.tile_x + dx1, self.tile_y + dy1)].mirrors:
+            if cell_map[(self.tile_x + dx1, self.tile_y + dy1)].get_side_by_delta(dx1, dy1) in ["wall", "trash", "enemy"] or cell_map[(self.tile_x + dx1, self.tile_y + dy1)].mirrors or cell_map[(self.tile_x + dx1, self.tile_y + dy1)].swapclamped:
                 return False
         if (self.tile_x + dx2, self.tile_y + dy2) in cell_map.keys():
-            if cell_map[(self.tile_x + dx2, self.tile_y + dy2)].get_side_by_delta(dx2, dy2) in ["wall", "trash", "enemy"] or cell_map[(self.tile_x + dx2, self.tile_y + dy2)].mirrors:
+            if cell_map[(self.tile_x + dx2, self.tile_y + dy2)].get_side_by_delta(dx2, dy2) in ["wall", "trash", "enemy"] or cell_map[(self.tile_x + dx2, self.tile_y + dy2)].mirrors or cell_map[(self.tile_x + dx2, self.tile_y + dy2)].swapclamped:
                 return False
         
         swap_cells(self.game, (self.tile_x + dx1, self.tile_y + dy1), (self.tile_x + dx2, self.tile_y + dy2))
@@ -1511,7 +1835,7 @@ class Cell():
         self.rot((-self.dir+dir+1)%4-1)
         
 
-    def gen(self, dir, cell: Self) -> Self:
+    def gen(self, dir, cell: Self, endo: bool = False) -> Self:
         cell_map = self.game.cell_map
         dx: int
         dy: int
@@ -1524,7 +1848,7 @@ class Cell():
         # Just create new cells if you have to
         # Cells have already been pushed
         # Just create new cells if you have to
-        if not (hp := self.push(dir, False, hp = generated_cell.hp)):
+        if not (hp := self.push(dir, False, hp = generated_cell.hp, force=1)):
             return
         if (self.tile_x + dx, self.tile_y + dy) not in cell_map.keys():
             generated_cell.hp = 1
@@ -1533,11 +1857,10 @@ class Cell():
             generated_cell.hp = hp
             generated_cell.check_hp()
 
-            if cell.generation != 'normal':
-                cell.generation -= 1
+
             #generated_cell.check_generation()
 
-            print("eee")
+            #print(.+?)"eee")
             if generated_cell.id:
                 cell_map[(self.tile_x + dx, self.tile_y + dy)] = generated_cell
             return generated_cell
@@ -1563,7 +1886,7 @@ class Cell():
 
 
     
-    def test_gen(self, dir: int, angle: int, twist: bool = False, clone: bool = False, suppress: bool = False) -> bool:
+    def test_gen(self, dir: int, angle: int, twist: bool = False, clone: bool = False, suppress: bool = False, endo: bool = False, redirect: bool = False) -> bool:
         cell_map = self.game.cell_map
 
         dx: int
@@ -1579,6 +1902,8 @@ class Cell():
         generated_cell: Cell = Cell(self.game, self.tile_x+odx, self.tile_y+ody, behind_cell.id, (behind_cell.dir+angle)%4)
         if twist:
             generated_cell.flip((dir*2+2)%4)
+        if redirect:
+            generated_cell.redirect(dir)
         if suppress:
             generated_cell.suppressed = True        
         if (self.tile_x + dx, self.tile_y + dy) in cell_map.keys():
@@ -1591,13 +1916,14 @@ class Cell():
         
         if behind_cell.generation == "ghost":
             return False
-        try:
-            generated_cell.generation -= 1
-        except TypeError:
-            pass
+        if not endo:
+            try:
+                generated_cell.generation -= 1
+            except TypeError:
+                pass
         generated_cell.check_generation()
         temp = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir-angle)%4)
-        new_cell = self.gen(dir, generated_cell)
+        new_cell = self.gen(dir, generated_cell, endo=endo)
 
 
 
@@ -1653,12 +1979,41 @@ class Cell():
             if coord in cell_map.keys():
                 if cell_map[coord].get_side(i//2) == "wall":
                     return False
-                if cell_map[coord].id in [18, 19]:
+                if cell_map[coord].gears or cell_map[coord].minigears:
                     return False
         for i in range(7):
             swap_cells(self.game, surrounding_cells[i], surrounding_cells[i+1])
         for i in range(1, 8, 2):
             if surrounding_cells[i] in cell_map.keys():
+                cell_map[surrounding_cells[i]].rot(rot)
+                cell_map[surrounding_cells[i]].dir %= 4
+        self.game.play_gear_sound = True
+
+        return True
+
+    def test_minigear(self, rot: int) -> bool:
+        cell_map = self.game.cell_map
+        if rot == 0:
+            return False
+        surrounding_cells = [(self.tile_x + 1, self.tile_y),
+                             (self.tile_x, self.tile_y + 1),
+                             (self.tile_x - 1, self.tile_y),
+                             (self.tile_x, self.tile_y - 1),]
+        if rot > 0:
+            surrounding_cells.reverse()
+        for i, coord in enumerate(surrounding_cells):
+            if coord in cell_map.keys():
+                if cell_map[coord].get_side(i//2) == "wall":
+                    return False
+                if cell_map[coord].gears:
+                    return False
+        for i in range(3):
+            swap_cells(self.game, surrounding_cells[i], surrounding_cells[i+1])
+        for i in range(4):
+            coord = surrounding_cells[i]
+            if coord in cell_map.keys():
+                if cell_map[coord].gears or cell_map[coord].minigears:
+                    return False
                 cell_map[surrounding_cells[i]].rot(rot)
                 cell_map[surrounding_cells[i]].dir %= 4
         self.game.play_gear_sound = True
@@ -1672,7 +2027,7 @@ class Cell():
             target_cell = cell_map[(self.tile_x + dx, self.tile_y + dy)]
             if target_cell.get_side(dir) == "wall" or target_cell.id == 25:
                 return False
-            target_cell.frozen = True
+            self.apply_effect(dx, dy, "freeze")
         return True
     
     def test_protect(self, dx: int, dy: int) -> bool:
@@ -1680,7 +2035,58 @@ class Cell():
         #dx, dy = get_deltas(dir)
         if ((self.tile_x + dx, self.tile_y + dy)) in cell_map.keys():
             target_cell = cell_map[(self.tile_x + dx, self.tile_y + dy)]
-            target_cell.protected = True
+            self.apply_effect(dx, dy, "protect")
+        return True
+    
+    def apply_effect(self, dx, dy, effect):
+        cell_map = self.game.cell_map
+        #dx, dy = get_deltas(dir)
+        print("applying effect")
+        if ((self.tile_x + dx, self.tile_y + dy)) in cell_map.keys():
+
+            target_cell: Cell = cell_map[(self.tile_x + dx, self.tile_y + dy)]
+            match effect:
+                case "freeze":
+                    if target_cell.frozen:
+                        return False
+                    target_cell.frozen = True
+                case "protect":
+                    if target_cell.protected:
+                        return False
+                    target_cell.protected = True
+                case "lock":
+                    if target_cell.locked:
+                        return False
+                    target_cell.locked = True
+                case "pushclamp":
+                    if target_cell.pushclamped:
+                        return False
+                    target_cell.pushclamped = True
+                case "pullclamp":
+                    if target_cell.pullclamped:
+                        return False
+                    target_cell.pullclamped = True
+                case "grabclamp":
+                    if target_cell.grabclamped:
+                        return False
+                    target_cell.grabclamped = True
+                case "swapclamp":
+                    if target_cell.swapclamped:
+                        return False
+                    target_cell.swapclamped = True
+            target_cell.on_effect(effect)
+        return True
+    
+    def revoke_effect(self, dx, dy, effect):
+        cell_map = self.game.cell_map
+        #dx, dy = get_deltas(dir)
+        if ((self.tile_x + dx, self.tile_y + dy)) in cell_map.keys():
+            target_cell = cell_map[(self.tile_x + dx, self.tile_y + dy)]
+            match effect:
+                case "freeze":
+                    target_cell.frozen = True
+                case "protect":
+                    target_cell.protected = True
         return True
     
     def test_intake(self, dir: int):
@@ -1689,11 +2095,11 @@ class Cell():
         if deleted[:2] not in cell_map.keys():
             return False
         deleted_cell = cell_map[deleted[:2]]
-        if deleted_cell.get_side(dir%4) in ["wall", "undirectional", "unpullable"]:
+        if deleted_cell.get_side(dir%4) in ["wall"] or deleted_cell.get_side(dir+2) in ["undirectional", "unpullable"]:
             return False
         del cell_map[deleted[:2]]
-        if not self.pull((dir+2)%4, False):
-            cell_map[deleted[:2]] = deleted_cell
+        if not self.pull((dir+2)%4, False, force=1):
+            #print(.+?)"e")
             return False
         ##trash_sound.play()
         self.game.delete_map.append(deleted_cell)
@@ -1703,11 +2109,15 @@ class Cell():
     
     def rot(self, rot: int):
         #rot %= 4
-        self.dir += rot
-        self.delta_dir += rot
-        self.dir %= 4
-        if rot % 4:
-            self.game.play_rotate_sound = True
+        if self.rotatable and not self.locked:
+            self.dir += rot
+            self.delta_dir += rot
+            self.dir %= 4
+            if rot % 4:
+                self.game.play_rotate_sound = True
+
+            self.on_rot(rot)
+
     
     def flip(self, rot: int):
         target_cell = self
@@ -1734,12 +2144,23 @@ class Cell():
 
 
     def do_push(self, dir):
-        if self.suppressed or self.frozen:
+        if self.suppressed or self.frozen or self.dir != dir:
             return
 
         if (self.pushes) and self.dir == dir:
-            self.push(dir, True)         
-            #self.suppressed = True
+            if not self.push(dir, True):  
+                if self.slices:
+                    if not self.slice(dir, True):
+                        return
+            
+            self.suppressed = True
+
+    def do_slice(self, dir):
+        if self.frozen or self.suppressed or self.dir != dir:
+            return
+        if self.slices:
+            if not self.slice(dir, True):
+                return
 
     def do_repulse(self, dir: int):
         if self.frozen:
@@ -1757,7 +2178,7 @@ class Cell():
         if self.frozen:
             return
         if self.get_side(dir) == "impulse":
-            self.pull(dir, False)
+            self.pull(dir, False, force=1)
 
     def do_grapulse(self, dir: int):
         if self.frozen:
@@ -1770,27 +2191,41 @@ class Cell():
     def do_pull(self, dir):
         if self.frozen or self.suppressed or not self.pulls or not self.dir == dir:
             return
+        pull_bias = self.get_pull_bias(dir, 0, suppress=False)
+        if pull_bias <= 0:
+            return False
         if not self.pushes:
-            if not self.nudge(dir, True):
-                #print("le")
+            if not self.nudge(dir, False):
+                ##print(.+?)"le")
                 return
             
-        if self.pushes:
-            if not self.push(self.dir, True):
-                return
+        else:
+            if self.slices:
+                if not self.slice(dir, False):
+                    if self.pushes:
+                        if not self.push(self.dir, False):
+                            return
+            elif self.pushes:
+                if self.push(self.dir, False) is False:
+                    return
+
 
         if self.cwgrabs or self.ccwgrabs:
             if self.cwgrabs:
                 if self.ccwgrabs:
-                    self.grab(self.dir, False)
+                    if self.grab(self.dir, False):
+                        self.suppressed = True
                 else:
-                    self.cw_grab(self.dir, False)
+                    if self.cw_grab(self.dir, False):
+                        self.suppressed = True
             elif self.ccwgrabs:
-                self.ccw_grab(self.dir, False)
+                if self.ccw_grab(self.dir, False):
+                    self.suppressed = True
 
 
-        self.pull(self.dir, False)
-        self.suppressed = True
+        if self.pull(self.dir, True):
+            self.suppressed = True
+        #self.suppressed = True
 
     def drill(self, dir, move: bool = True):
         self.suppressed = True
@@ -1801,7 +2236,7 @@ class Cell():
                 return False
 
             if move:
-                swap_cells(self.game, (self.tile_x, self.tile_y), (self.tile_x + dx, self.tile_y + dy))
+                self.test_swap(0, 0, dx, dy)
         else:
             if move:
                 self.nudge(dir, True)
@@ -1814,7 +2249,7 @@ class Cell():
         if self.dir != dir:
             return
 
-        #print()
+        ##print(.+?))
 
         if self.pushes:
             if not self.drill(self.dir, False):
@@ -1828,34 +2263,49 @@ class Cell():
         if self.cwgrabs or self.ccwgrabs:
             if self.cwgrabs:
                 if self.ccwgrabs:
-                    self.grab(self.dir, False)
+                    if self.grab(self.dir, False):
+                        self.suppressed = True
                 else:
-                    self.cw_grab(self.dir, False)
+                    if self.cw_grab(self.dir, False):
+                        self.suppressed = True
             elif self.ccwgrabs:
-                self.ccw_grab(self.dir, False)
+               if self.ccw_grab(self.dir, False):
+                   self.suppressed = True
 
         if self.pushes:
             if not self.push(self.dir, True):
-                self.drill(self.dir)
+                if self.slices:
+                    if not self.slice(self.dir, True):
+                        if self.drill(self.dir):
+                            self.suppressed = True
+                else:
+                    if self.drill(self.dir):
+                        self.suppressed = True
         else:
-            self.drill(self.dir)
+            if self.slices:
+                if not self.slice(self.dir, True):
+                    if self.drill(self.dir):
+                        self.suppressed = True
+            elif self.drill(self.dir):
+                self.suppressed = True
                 
         if self.pulls:
             self.pull(self.dir, False)
 
-        self.suppressed = True
+        #self.suppressed = True
     
     def do_gen(self, dir: int):
         if self.frozen:
             return
 
-        if self.get_side(dir) in ["generator"]:
-            self.test_gen(dir, 0)
-        if self.get_side(dir) in ["cwgenerator", "dextroanlevogenerator"]:
-            self.test_gen(dir, 1)
-        if self.get_side(dir) in ["ccwgenerator", "dextroanlevogenerator"]:
+        side = self.get_side(dir)
+        if side in ["generator"]:
+            self.test_gen(dir, 0, clone=(side == "cloner"), twist=(side == "twistgenerator"), redirect=(side == "redirectgenerator"))
+        if side in ["cwgenerator", "dextroanlevogenerator"]:
+            self.test_gen(dir, 1, clone=(side == "cloner"), twist=(side == "twistgenerator"), redirect=(side == "redirectgenerator"))
+        if side in ["ccwgenerator", "dextroanlevogenerator"]:
              
-            self.test_gen(dir, -1)
+            self.test_gen(dir, -1, clone=(side == "cloner"), twist=(side == "twistgenerator"), redirect=(side == "redirectgenerator"))
 
     def do_super_gen(self, dir: int):
         if self.frozen:
@@ -1905,9 +2355,6 @@ class Cell():
                 if self.dir == dir:
                     self.test_gen(dir, 0)
 
-        if self.id == 40:
-            if self.dir == dir:
-                self.test_gen(dir, 0, True)
 
     def do_replicate(self, dir: int):
         if self.frozen:
@@ -1977,20 +2424,187 @@ class Cell():
             return
         if self.gears == dir:
             self.test_gear(self.gears)
+        if self.minigears == dir:
+            self.test_minigear(self.minigears)
 
-    def do_freeze(self, dir):
+    def do_freeze(self):
         if self.frozen:
             return
-        if self.get_side(dir) == "freezer":
-            self.test_freeze(dir)
+        for i in range(4):
+            if self.get_side(i) == "freezer":
+                self.test_freeze(i)
 
-    def do_protect(self):
+    def do_effect_giving(self):
         if self.frozen:
             return
-        if self.id == 43:
+        if self.extra_properties.get("shield"):
+            if self.extra_properties.get("shield")[1] == "moore":
+                dist = self.extra_properties["shield"][0]
+                for i in range(-dist, dist+1):
+                    for j in range(-dist, dist+1):
+                        self.apply_effect(i, j, "protect")
+        if self.id == 112:
+            for i, j in [(-1, 0), (1, 0), (0, -1), (0, 1), (0, 0)]:
+                self.apply_effect(i, j, "lock")
+        pass
+        for i in range(4):
+            dx, dy = get_deltas(i)
+            if self.get_side(i) == "pushclamper":
+                self.apply_effect(dx, dy, "pushclamp")
+            if self.get_side(i) == "pullclamper":
+                self.apply_effect(dx, dy, "pullclamp")
+            if self.get_side(i) == "grabclamper":
+                self.apply_effect(dx, dy, "grabclamp")
+            if self.get_side(i) == "swapclamper":
+                self.apply_effect(dx, dy, "swapclamp")
+
+        dx, dy = 0, 0
+        if self.get_side(i) == "pushclamper":
+            self.apply_effect(dx, dy, "pushclamp")
+        if self.get_side(i) == "pullclamper":
+            self.apply_effect(dx, dy, "pullclamp")
+        if self.get_side(i) == "grabclamper":
+            self.apply_effect(dx, dy, "grabclamp")
+        if self.get_side(i) == "swapclamper":
+            self.apply_effect(dx, dy, "swapclamp")
+
+    def do_infect(self):
+        if self.frozen or self.suppressed:
+            return
+        self.suppressed = True
+        if self.infects[0]:
+            if random.random() > self.infects[2]:
+                return
             for i in range(-1, 2):
                 for j in range(-1, 2):
-                    self.test_protect(i, j)
+                    if (bool(i and j) and (self.infects[0] in ["sur", "skw"])) \
+                    or bool(not (i and j)) and (self.infects[0] in ["sur", "adj"]):
+                        if ((self.tile_x+i, self.tile_y+j) in self.game.cell_map.keys() and self.infects[1] in ["cells", "all"]) \
+                        or ((self.tile_x+i, self.tile_y+j) not in self.game.cell_map.keys() and self.infects[1] in ["air", "all"]):
+                            if (self.tile_x+i, self.tile_y+j) not in self.game.cell_map.keys() \
+                            or (self.game.cell_map[self.tile_x+i, self.tile_y+j].infects != self.infects \
+                            and self.game.cell_map[self.tile_x+i, self.tile_y+j].get_side_by_delta(i, j) not in ["wall", "trash"] \
+                            and not self.game.cell_map[self.tile_x+i, self.tile_y+j].protected):
+                                self.game.cell_map[self.tile_x+i, self.tile_y+j] = self.copy()
+                                self.game.cell_map[self.tile_x+i, self.tile_y+j].tile_x = self.tile_x+i
+                                self.game.cell_map[self.tile_x+i, self.tile_y+j].tile_y = self.tile_y+j
+                                self.game.cell_map[self.tile_x+i, self.tile_y+j].suppressed = True
+        else:
+            if self.lifes:
+                self.life()
+
+    def infect(self, dx, dy):
+        i = dx
+        j = dy
+        cell: Self = self.game.cell_map[self.tile_x+i, self.tile_y+j]
+        if cell.get_side_by_delta(-dx, -dy) not in ["wall", "trash"]:
+            self.game.cell_map[self.tile_x+i, self.tile_y+j] = self.copy()
+            self.game.cell_map[self.tile_x+i, self.tile_y+j].tile_x = self.tile_x+i
+            self.game.cell_map[self.tile_x+i, self.tile_y+j].tile_y = self.tile_y+j
+            self.game.cell_map[self.tile_x+i, self.tile_y+j].suppressed = True
+
+    def life(self):
+        previous_map = self.game.previous_map
+        cell_map = self.game.cell_map
+        surrounding_cells = []
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if (i, j) != (0, 0):
+                    surrounding_cells.append((self.tile_x + i, self.tile_y + j))
+        num = 0
+        for coord in surrounding_cells:
+            if coord in previous_map.keys():
+                if previous_map[coord].lifes == True:
+                    num += 1
+        if num in [2, 3]:
+            pass
+        else:
+            del cell_map[(self.tile_x, self.tile_y)]
+            return False
+        for coord in surrounding_cells:
+            if coord not in previous_map.keys():
+                num2 = 0
+                blank_x, blank_y = coord
+                for i in range(-1, 2):
+                    for j in range(-1, 2):
+                        if (i, j) != (0, 0):
+                            if (blank_x + i, blank_y + j) in previous_map.keys():
+                                if previous_map[(blank_x + i, blank_y + j)].lifes:
+                                    num2 += 1
+                if num2 == 3:
+                    cell_map[coord] = self.copy()
+                    cell_map[coord].tile_x = blank_x
+                    cell_map[coord].tile_y = blank_y
+                    
+            
+
+
+
+    def timewarp(self, dir):
+        incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir)
+        if incr[:2] not in self.game.cell_map.keys():
+            if incr[:2] in self.game.initial_cell_map.keys():
+                self.game.cell_map[incr[:2]] = self.game.initial_cell_map[incr[:2]].copy()
+            return
+
+        cell: Self = self.game.cell_map[incr[:2]]
+        if not cell.get_side((dir+2)%4).is_transformable() or cell.protected:
+            return
+        print("time2")
+        if incr[:2] not in self.game.initial_cell_map.keys():
+            del self.game.cell_map[incr[:2]]
+        else:
+            self.game.cell_map[incr[:2]] = self.game.initial_cell_map[incr[:2]].copy()
+
+    def timegen(self, dir: int, angle: int, twist: bool = False, clone: bool = False, suppress: bool = False, endo: bool = False, redirect: bool = False) -> bool:
+        cell_map = self.game.cell_map
+
+        dx: int
+        dy: int
+        dx, dy = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir-angle+2)%4)[3]
+        oddir, (odx, ody) = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir)[2:4]
+        enemy_flag = False
+        if (self.tile_x + dx, self.tile_y + dy) in self.game.initial_cell_map.keys():
+
+            behind_cell: Cell = self.game.initial_cell_map[(self.tile_x + dx, self.tile_y + dy)]
+        else:
+            return False
+        generated_cell: Cell = behind_cell.copy()
+        generated_cell.tile_x = self.tile_x+odx
+        generated_cell.tile_y = self.tile_y+ody
+        if twist:
+            generated_cell.flip((dir*2+2)%4)
+        if redirect:
+            generated_cell.redirect(dir)
+        if suppress:
+            generated_cell.suppressed = True        
+        if (self.tile_x + dx, self.tile_y + dy) in cell_map.keys():
+            
+            #generated_cell.rot(oddir)
+            if clone:
+                generated_cell.dir = behind_cell.dir
+        else: 
+            return False
+        
+        if behind_cell.generation == "ghost":
+            return False
+        if not endo:
+            try:
+                generated_cell.generation -= 1
+            except TypeError:
+                pass
+        generated_cell.check_generation()
+        temp = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir-angle)%4)
+        new_cell = self.gen(dir, generated_cell, endo=endo)
+
+    def do_timewarp(self, dir):
+        if self.get_side(dir) == "timewarper":
+            self.timewarp(dir)
+        if self.get_side(dir) == "timegenerator":
+            self.timegen(dir, 0)
+
+                
+                
 
     def get_side(self, dir: int) -> str:
         dir%=4
@@ -2031,7 +2645,7 @@ class Cell():
         else:
             return self.get_side(0.5)
         
-    def cw_grab(self, dir: int, move: bool, hp: int = 1, force: int = 1, speed: int = 1) -> bool | int:
+    def cw_grab(self, dir: int, move: bool, hp: int = 1, force: int = 1, speed: int = 1, bypass_bias=False) -> bool | int:
         if move:
             if not self.nudge(dir, False, is_grab=True):
                 return
@@ -2059,15 +2673,19 @@ class Cell():
                 fail = True
             if cell_map[incr[:2]].get_side((dir+1+incr[2])%4) == "undirectional":
                 fail = True
+            if cell_map[incr[:2]].get_side((dir+1+incr[2])%4) == "ungrabbable":
+                fail = True
+            if cell_map[incr[:2]].grabclamped:
+                fail = True
             if cell_map[incr[:2]].get_side((dir+3+incr[2])%4) == "trash":
                 trash_flag = True
 
             if "forker" in cell_map[incr[:2]].get_side((dir+3)%4):
                 trash_flag = True
                 
-        #print(force)
-        bias = self.get_cw_grab_bias(dir, force, times=1)
-        #print(self, bias)
+        ##print(.+?)force)
+        bias = (math.inf if bypass_bias else self.get_cw_grab_bias(dir, force, times=1))
+        ##print(.+?)self, bias)
 
         if bias <= 0:
             return False
@@ -2081,8 +2699,8 @@ class Cell():
             #if (new_x, new_y) != (self.tile_x, self.tile_y):
             if not trash_flag and not fail:
                 try:
-                    #print("hiello")
-                    if not cell_map[incr[:2]].cw_grab((incr[4]-1)%4, True, force=bias, speed=speed):
+                    ##print(.+?)"hiello")
+                    if not cell_map[incr[:2]].cw_grab((incr[4]-1)%4, True, force=bias, speed=speed, bypass_bias=True):
                         #cell_map[(self.tile_x, self.tile_y)] = self
                         pass
                         #return False
@@ -2104,7 +2722,7 @@ class Cell():
                 self.tile_y = new_y
                 self.rot(new_dir)
             else:
-                cell_map[killer_cell[:2]].on_force(dir, self, force_type=1)
+                cell_map[killer_cell[:2]].on_force(dir, self, force_type="cwgrab")
                 if (self.tile_x, self.tile_y) in cell_map.keys():
                     del cell_map[(self.tile_x, self.tile_y)]
                 self.tile_x = killer_cell[0]
@@ -2121,8 +2739,63 @@ class Cell():
             
 
         return True
+    
+    def handle_weights(self, orig_force, dir):
+        bias = orig_force
+        cell = self
 
-    def get_push_bias(self, dir, force=0, times=-1):
+        if cell.get_side(dir) == "weight":
+            bias-=1
+        if cell.get_side(dir) == "antiweight":
+            bias+=1
+
+        if temp := cell.extra_properties.get("restrictance"):
+            if temp < bias:
+                bias = cell.extra_properties["restrictance"]
+
+        if cell.extra_properties.get("resistance"):
+                if bias != (cell.dir+1 if cell.extra_properties.get("tentative") else 1):
+                    return -math.inf
+                
+        return bias
+    
+    def get_push_bias(self, dir, force=0, times=-1, suppress=True):
+        cell_map = self.game.cell_map
+        if times == 0:
+            return force
+        bias = force
+        cell = self
+        fore_incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir)%4, force_type=0, displace=True)
+        back_incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+2)%4, force_type=0, displace=True)
+        if cell.pushes and (cell.dir)%4 == (dir)%4:
+            bias+=1
+        if cell.pushes and (cell.dir)%4 == (dir+2)%4:
+            bias -= 1
+        
+        if cell.get_side((dir+2)%4) == "repulse":
+            bias-=1
+
+        
+        
+
+        if self.pushes and self.dir == dir:
+            self.suppressed |= False
+
+        bias = self.handle_weights(bias, dir)
+        if bias == -math.inf:
+            return -math.inf
+
+
+        if fore_incr[:2] in cell_map.keys():
+            bias = cell_map[fore_incr[:2]].get_forward_push_bias((fore_incr[4])%4, force=bias, times = times-1)
+        if bias <= 0:
+            return bias
+        if back_incr[:2] in cell_map.keys():
+            bias = cell_map[back_incr[:2]].get_reverse_push_bias((back_incr[4]+2)%4, force=bias, times = times-1)
+        
+        return bias
+
+    def get_forward_push_bias(self, dir, force=0, times=-1, suppress=True):
         cell_map = self.game.cell_map
         if times == 0:
             return force
@@ -2134,20 +2807,80 @@ class Cell():
         if cell.pushes and (cell.dir)%4 == (dir+2)%4:
             bias -= 1
 
-        if cell.get_side((incr[4]+2)%4) == "repulse":
+        if cell.get_side((dir+2)%4) == "repulse":
             bias-=1
-        if cell.get_side(dir+2) == "weight":
-            bias-=1
-        if cell.get_side((dir+2)) == "antiweight":
-            bias+=1
-        #cell.on_force(dir, self, force_type=1)
+        bias = self.handle_weights(bias, dir)
         
+
+        if self.pushes and self.dir == dir:
+            self.suppressed |= False
+
         if incr[:2] not in cell_map.keys():
             return bias
-        bias += cell_map[incr[:2]].get_push_bias((dir)%4, force=0, times = times-1)
+        bias = cell_map[incr[:2]].get_forward_push_bias((incr[4])%4, force=bias, times = times-1)
+        return bias
+
+    def get_reverse_push_bias(self, dir, force=0, times=-1, suppress=True):
+        cell_map = self.game.cell_map
+        if times == 0:
+            return force
+        bias = force
+        cell = self
+        incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+2)%4, force_type=0, displace=True)
+        if cell.pushes and (cell.dir)%4 == (dir)%4:
+            bias+=1
+        if cell.pushes and (cell.dir)%4 == (dir+2)%4:
+            bias -= 1
+
+        if cell.get_side((dir+2)%4) == "repulse":
+            bias-=1
+        bias = self.handle_weights(bias, dir)
+        
+
+        if self.pushes and self.dir == dir:
+            self.suppressed |= False
+
+        if incr[:2] not in cell_map.keys():
+            return bias
+        bias = cell_map[incr[:2]].get_reverse_push_bias((incr[4]+2)%4, force=bias, times = times-1)
         return bias
     
-    def get_cw_grab_bias(self, dir, force=0, times=-1):
+    def get_cw_grab_bias(self, dir, force=0, times=-1, suppress=True):
+        cell_map = self.game.cell_map
+        if times == 0:
+            return force
+        bias = force
+        cell = self
+        fore_incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+1)%4, force_type=0, displace=True)
+        back_incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+3)%4, force_type=0, displace=True)
+        if cell.ccwgrabs and (cell.dir+1)%4 == (dir+1)%4:
+            bias+=1
+        if cell.cwgrabs and (cell.dir-1)%4 == (dir+1)%4:
+            bias -= 1
+        if cell.get_side((dir+2)%4) == "cwgrapulse":
+            bias+=1
+        if cell.get_side((dir+2)%4) == "ccwgrapulse":
+            bias-=1
+        if cell.get_side((dir)%4) == "cwgrapulse":
+            bias-=1
+        if cell.get_side((dir)%4) == "ccwgrapulse":
+            bias+=1
+        self.handle_weights(bias, dir)
+        #cell.on_force(dir, self, force_type=1)
+        if self.cwgrabs and self.dir == dir:
+            cell.suppressed |= False
+        if fore_incr[:2] in cell_map.keys():
+            bias = cell_map[fore_incr[:2]].get_forward_cw_grab_bias((fore_incr[4]-1)%4, force=bias, times = times-1)
+        if bias <= 0:
+            return bias
+        if back_incr[:2] in cell_map.keys():
+            bias = cell_map[back_incr[:2]].get_reverse_cw_grab_bias((back_incr[4]+1)%4, force=bias, times = times-1)
+        
+
+
+        return bias
+    
+    def get_forward_cw_grab_bias(self, dir, force=0, times=-1, suppress=True):
         cell_map = self.game.cell_map
         if times == 0:
             return force
@@ -2166,18 +2899,81 @@ class Cell():
             bias-=1
         if cell.get_side((incr[4])%4) == "ccwgrapulse":
             bias+=1
-        if cell.get_side(dir+2) == "weight":
-            bias-=1
-        if cell.get_side((dir+2)) == "antiweight":
-            bias+=1
+        self.handle_weights(bias, dir)
         #cell.on_force(dir, self, force_type=1)
-        
-        if incr[:2] not in cell_map.keys():
-            return bias
-        bias += cell_map[incr[:2]].get_cw_grab_bias((dir)%4, force=0, times = times-1)
+        if self.cwgrabs and self.dir == dir:
+            cell.suppressed |= False
+        if incr[:2] in cell_map.keys():
+             # Things that happen when the row breaks
+            bias = cell_map[incr[:2]].get_forward_cw_grab_bias((incr[4]-1)%4, force=bias, times = times-1)
         return bias
+    
+    def get_reverse_cw_grab_bias(self, dir, force=0, times=-1, suppress=True):
+        cell_map = self.game.cell_map
+        if times == 0:
+            return force
+        bias = force
+        cell = self
+        incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir+3)%4, force_type=1, displace=True)
+        if cell.ccwgrabs and (cell.dir+1)%4 == (dir+1)%4:
+            bias+=1
+        if cell.cwgrabs and (cell.dir-1)%4 == (dir+1)%4:
+            bias -= 1
+        if cell.get_side((dir+2)%4) == "cwgrapulse":
+            bias+=1
+        if cell.get_side((dir+2)%4) == "ccwgrapulse":
+            bias-=1
+        if cell.get_side((dir)%4) == "cwgrapulse":
+            bias-=1
+        if cell.get_side((dir)%4) == "ccwgrapulse":
+            bias+=1
+        self.handle_weights(bias, dir)
+        #cell.on_force(dir, self, force_type=1)
+        if self.cwgrabs and self.dir == dir:
+            cell.suppressed |= False
+        if incr[:2] not in cell_map.keys():
+             # Things that happen when the row breaks
 
-    def get_ccw_grab_bias(self, dir, force=0, times=-1):
+            return bias
+        bias = cell_map[incr[:2]].get_reverse_cw_grab_bias((incr[4]+1)%4, force=bias, times = times-1)
+        return bias
+    
+
+    def get_ccw_grab_bias(self, dir, force=0, times=-1, suppress=True):
+        cell_map = self.game.cell_map
+        if times == 0:
+            return force
+        bias = force
+        cell = self
+        fore_incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir-1)%4, force_type=3, displace=True)
+        back_incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir-3)%4, force_type=3, displace=True)
+        cell = self
+        if cell.ccwgrabs and (cell.dir-1)%4 == (dir-1)%4:
+            bias+=1
+        if cell.cwgrabs and (cell.dir+1)%4 == (dir-1)%4:
+            bias -= 1
+        if cell.get_side((dir+2)%4) == "cwgrapulse":
+            bias+=1
+        if cell.get_side((dir+2)%4) == "ccwgrapulse":
+            bias-=1
+        if cell.get_side((dir)%4) == "cwgrapulse":
+            bias-=1
+        if cell.get_side((dir)%4) == "ccwgrapulse":
+            bias+=1
+        self.handle_weights(bias, dir)
+        if self.ccwgrabs and self.dir == dir:
+            cell.suppressed |= False
+        if fore_incr[:2] in cell_map.keys():
+            bias = cell_map[fore_incr[:2]].get_forward_ccw_grab_bias((fore_incr[4])%4, force=bias, times = times-1)
+        if bias <= 0:
+            return bias
+        if back_incr[:2] in cell_map.keys():
+            bias = cell_map[back_incr[:2]].get_reverse_ccw_grab_bias((back_incr[4]+2)%4, force=bias, times = times-1)
+        
+
+        return bias
+    
+    def get_forward_ccw_grab_bias(self, dir, force=0, times=-1, suppress=True):
         cell_map = self.game.cell_map
         if times == 0:
             return force
@@ -2189,23 +2985,59 @@ class Cell():
             bias+=1
         if cell.cwgrabs and (cell.dir+1)%4 == (dir-1)%4:
             bias -= 1
-        if cell.get_side((incr[4]+2)%4) == "cwgrapulse":
+        if cell.get_side((dir+2)%4) == "cwgrapulse":
             bias+=1
-        if cell.get_side((incr[4]+2)%4) == "ccwgrapulse":
+        if cell.get_side((dir+2)%4) == "ccwgrapulse":
             bias-=1
-        if cell.get_side((incr[4])%4) == "cwgrapulse":
+        if cell.get_side((dir)%4) == "cwgrapulse":
             bias-=1
-        if cell.get_side((incr[4])%4) == "ccwgrapulse":
+        if cell.get_side((dir)%4) == "ccwgrapulse":
             bias+=1
-        if cell.get_side(dir+2) == "weight":
-            bias-=1
-        if cell.get_side(dir+2) == "antiweight":
-            bias+=1
+        self.handle_weights(bias, dir)
+
+        if self.ccwgrabs and self.dir == dir:
+            cell.suppressed |= False
         
+
         if incr[:2] not in cell_map.keys():
+             # Things that happen when the row breaks
+
             return bias
 
-        bias += cell_map[incr[:2]].get_ccw_grab_bias((dir)%4, force=0, times=times-1)
+        bias = cell_map[incr[:2]].get_ccw_grab_bias((incr[4])%4, force=bias, times=times-1)
+        return bias
+    
+    def get_reverse_ccw_grab_bias(self, dir, force=0, times=-1, suppress=True):
+        cell_map = self.game.cell_map
+        if times == 0:
+            return force
+        bias = force
+        cell = self
+        incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, (dir-3)%4, force_type=3, displace=True)
+        cell = self
+        if cell.ccwgrabs and (cell.dir-1)%4 == (dir-1)%4:
+            bias+=1
+        if cell.cwgrabs and (cell.dir+1)%4 == (dir-1)%4:
+            bias -= 1
+        if cell.get_side((dir+2)%4) == "cwgrapulse":
+            bias+=1
+        if cell.get_side((dir+2)%4) == "ccwgrapulse":
+            bias-=1
+        if cell.get_side((dir)%4) == "cwgrapulse":
+            bias-=1
+        if cell.get_side((dir)%4) == "ccwgrapulse":
+            bias+=1
+        self.handle_weights(bias, dir)
+        if self.ccwgrabs and self.dir == dir:
+            cell.suppressed |= False
+        
+
+        if incr[:2] not in cell_map.keys():
+             # Things that happen when the row breaks
+
+            return bias
+
+        bias = cell_map[incr[:2]].get_ccw_grab_bias((incr[4]+2)%4, force=bias, times=times-1)
         return bias
         
     
@@ -2239,6 +3071,10 @@ class Cell():
             if cell_map[incr[:2]].get_side((dir+1+incr[2])%4) == "wall":
                 fail = True
             if cell_map[incr[:2]].get_side((dir+3+incr[2])%4) == "undirectional":
+                fail = True
+            if cell_map[incr[:2]].get_side((dir+3+incr[2])%4) == "ungrabbable":
+                fail = True
+            if cell_map[incr[:2]].grabclamped:
                 fail = True
             if cell_map[incr[:2]].get_side((dir+1+incr[2])%4) == "trash":
                 trash_flag = True
@@ -2292,7 +3128,7 @@ class Cell():
 
             if self.pushes or self.pulls or self.cwgrabs or self.ccwgrabs:
                 if self.dir == (incr[4]+1)%4:
-                    print("ee")
+                    #print(.+?)"ee")
                     self.suppressed = True
 
             
@@ -2311,7 +3147,8 @@ class Cell():
             
             if cell_map[incr_cw[:2]].get_side((dir+2+incr_cw[2])) == "wall" \
             or "trash" in cell_map[incr_cw[:2]].get_side((dir+2+incr_cw[2])) \
-            or cell_map[incr_cw[:2]].get_side((dir+incr_cw[2])) == "undirectional":
+            or cell_map[incr_cw[:2]].get_side((dir+incr_cw[2])) == "undirectional" \
+            or cell_map[incr_cw[:2]].get_side((dir+incr_cw[2])) == "ungrabbable":
                 cw_fail = True
 
 
@@ -2319,10 +3156,11 @@ class Cell():
         if incr_ccw[:2] in cell_map.keys():
             if cell_map[incr_ccw[:2]].get_side((dir+2+incr_ccw[2])) == "wall" \
             or "trash" in cell_map[incr_ccw[:2]].get_side((dir+2+incr_ccw[2])) \
-            or cell_map[incr_ccw[:2]].get_side((dir+incr_ccw[2])) == "undirectional":
+            or cell_map[incr_ccw[:2]].get_side((dir+incr_ccw[2])) == "undirectional" \
+            or cell_map[incr_ccw[:2]].get_side((dir+incr_ccw[2])) == "ungrabbable":
                 ccw_fail = True
             
-        if self.get_cw_grab_bias(dir) <= 0 or self.get_ccw_grab_bias(dir) <= 0:
+        if self.get_cw_grab_bias(dir, suppress=False) <= 0 or self.get_ccw_grab_bias(dir, suppress=False) <= 0:
             return False
         
         if move:
@@ -2330,7 +3168,7 @@ class Cell():
                 return False
 
         if incr_cw[:2] in cell_map.keys() and not cw_fail:
-            #print("YASS")
+            ##print(.+?)"YASS")
             if not cell_map[incr_cw[:2]].cw_grab(incr_cw[4]-1, True, force=math.inf):
                 pass
                 #return False
@@ -2351,25 +3189,24 @@ class Cell():
         #incr = increment_with_divergers(self.tile_x, self.tile_y, (dir+3)%4)
         new_x, new_y, new_dir, a, b = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir, displace=True)
         bias = force
-        #print("n")
-        if move:
-            if (new_x, new_y) in cell_map.keys():
-                if "trash" in cell_map[new_x, new_y].get_side((dir+2+new_dir)%4):
-                    suicide_flag = True
-                    killer_cell = (new_x, new_y, new_dir, a, b)
-                if "forker" in cell_map[new_x, new_y].get_side((dir+2+new_dir)%4):
-                    suicide_flag = True
-                    killer_cell = (new_x, new_y, new_dir, a, b)
-                if "divider" in cell_map[new_x, new_y].get_side((dir+2+new_dir)%4):
-                    suicide_flag = True
-                    killer_cell = (new_x, new_y, new_dir, a, b)
+        ##print(.+?)"n")
+        if (new_x, new_y) in cell_map.keys():
+            if "trash" in cell_map[new_x, new_y].get_side((dir+2+new_dir)%4):
+                suicide_flag = True
+                killer_cell = (new_x, new_y, new_dir, a, b)
+            if "forker" in cell_map[new_x, new_y].get_side((dir+2+new_dir)%4):
+                suicide_flag = True
+                killer_cell = (new_x, new_y, new_dir, a, b)
+            if "divider" in cell_map[new_x, new_y].get_side((dir+2+new_dir)%4):
+                suicide_flag = True
+                killer_cell = (new_x, new_y, new_dir, a, b)
                 
 
         if (new_x, new_y) in cell_map.keys():
                 cell = cell_map[new_x, new_y]
-                if "enemy" in cell_map[new_x, new_y].get_side((dir+2+new_dir)%4):
+                if "enemy" in cell.get_side((dir+2+new_dir)%4) and not cell.protected:
                     self.game.play_destroy_flag = True
-                    if not self.mexican_standoff(cell):
+                    if not self.mexican_standoff(cell, destroy=move):
                         #cell_map[new_x, new_y] = self
                         
                         self.tile_x = new_x
@@ -2398,10 +3235,12 @@ class Cell():
         if not suicide_flag:    
                     
             if (new_x, new_y) in cell_map.keys():
-                front_cell = cell_map[(self.tile_x, self.tile_y)]   
+                front_cell = cell_map[new_x, new_y]   
                 
                 cell_map[(self.tile_x, self.tile_y)] = self
-                #print(self)
+                front_cell.on_force(b, self, force_type="nudge")
+                print("yar")
+                ##print(.+?)self)
                 return False
 
 
@@ -2412,10 +3251,10 @@ class Cell():
                 self.suppressed = True
 
             if suicide_flag:
-                #print("eee")
+                ##print(.+?)"eee")
                 
                 if not enemy_flag:
-                    cell_map[killer_cell[:2]].on_force(b, self)
+                    cell_map[killer_cell[:2]].on_force(b, self, force_type="nudge")
                     if (self.tile_x, self.tile_y) in cell_map.keys():
                         del cell_map[(self.tile_x, self.tile_y)]
                 self.tile_x = killer_cell[0]
@@ -2445,31 +3284,53 @@ class Cell():
         if self.dir == dir:
             if self.cwgrabs or self.ccwgrabs:
 
-
-                if self.pushes:
-                    self.push(dir, False)
+                if self.slices:
+                    if not self.slice(dir, False):
+                        if self.pushes:
+                            self.push(dir, False)
+                else:
+                    if self.pushes:
+                        self.push(dir, False)
 
                 if self.cwgrabs:
                     if self.ccwgrabs:
 
-                        self.grab(dir, True)
+                        if self.grab(dir, True):
+                            self.suppressed = True
                     else:
-                        self.cw_grab(dir, True)
+                        if self.cw_grab(dir, True):
+                            self.suppressed = True
                 elif self.ccwgrabs:
-                    self.ccw_grab(dir, True)
+                    if self.ccw_grab(dir, True):
+                        self.suppressed = True
 
 
 
-                self.suppressed = True
-
+                
     def do_nudge(self, dir):
         if self.frozen or self.suppressed:
             return False
         if self.dir == dir:
             if self.nudges:
-                self.nudge(dir, True)
+                if not self.nudge(dir, True):
+                    self.suppressed = True
 
-                self.suppressed = True
+    def do_magnet(self, dir):
+        if self.get_side(dir) not in ["mag_n", "mag_s"]:
+            return
+        incr = increment_with_divergers(self.game, self.tile_x, self.tile_y, dir)
+        if incr[:2] in self.game.cell_map.keys():
+            cell = self.game.cell_map[incr[:2]]
+            if cell.get_side((incr[4]+2)%4) == self.get_side(dir):
+                cell.push(incr[4], True, force=1)
+
+        incr2 = increment_with_divergers(self.game, incr[0], incr[1], incr[4]%4)
+        if incr2[:2] in self.game.cell_map.keys():
+            cell = self.game.cell_map[incr2[:2]]
+            if cell.get_side((incr2[4]+2)%4) != self.get_side(dir) and cell.get_side((incr2[4]+2)%4) in ["mag_n", "mag_s"]:
+                cell.pull((incr2[4]+2)%4, True, force=1)
+
+        
 
     def check_hp(self):
         cell_map = self.game.cell_map

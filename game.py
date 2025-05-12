@@ -2,6 +2,7 @@ import sys
 import os
 import math
 import pyperclip
+from functools import partial
 
 from encoding import base84, cheatsheet
 from zlib import compress
@@ -97,6 +98,7 @@ class CelPython:
         self.forcers_icon_image = pygame.transform.scale(cell_images[21], (40, 40))
         self.divergers_icon_image = pygame.transform.scale(cell_images[16], (40, 40))
         self.destroyers_icon_image = pygame.transform.scale(cell_images[12], (40, 40))
+        self.transformers_icon_image = pygame.transform.scale(pygame.image.load(self.resource_path("textures/transformer.png")), (40, 40))
         self.misc_icon_image = pygame.transform.scale(cell_images[20], (40, 40))
 
         self.menu_bg = pygame.image.load(self.resource_path("textures/menubg.png"))
@@ -104,6 +106,11 @@ class CelPython:
         self.placeable_overlay = pygame.image.load(self.resource_path("textures/effects/placeableoverlay.png"))
         self.freeze_image = pygame.image.load(self.resource_path("textures/effects/frozen.png"))
         self.protect_image = pygame.image.load(self.resource_path("textures/effects/protected.png"))
+        self.lock_image = pygame.image.load(self.resource_path("textures/effects/locked.png"))
+        self.pushclamp_image = pygame.image.load(self.resource_path("textures/effects/clamp-push.png"))
+        self.pullclamp_image = pygame.image.load(self.resource_path("textures/effects/clamp-pull.png"))
+        self.grabclamp_image = pygame.image.load(self.resource_path("textures/effects/clamp-grab.png"))
+        self.swapclamp_image = pygame.image.load(self.resource_path("textures/effects/clamp-swap.png"))
 
         self.buttonz = pygame.sprite.Group()
 
@@ -159,10 +166,13 @@ class CelPython:
         self.destroyers_icon_rect: pygame.Rect = self.destroyers_icon_image.get_rect()
         self.destroyers_icon_rect.midleft = (7+7*54, self.window_height - 27)
 
+        self.transformers_icon_rect: pygame.Rect = self.transformers_icon_image.get_rect()
+        self.transformers_icon_rect.midleft = (7+8*54, self.window_height - 27)
+
         self.misc_icon_rect: pygame.Rect = self.misc_icon_image.get_rect()
         self.misc_icon_rect.midleft = (7+9*54, self.window_height - 27)
 
-        self.toolbar_icon_rects: list[pygame.Rect] = [self.tools_icon_rect, self.basic_icon_rect, self.movers_icon_rect, self.generators_icon_rect, self.rotators_icon_rect, self.forcers_icon_rect, self.divergers_icon_rect, self.destroyers_icon_rect, None, self.misc_icon_rect]
+        self.toolbar_icon_rects: list[pygame.Rect] = [self.tools_icon_rect, self.basic_icon_rect, self.movers_icon_rect, self.generators_icon_rect, self.rotators_icon_rect, self.forcers_icon_rect, self.divergers_icon_rect, self.destroyers_icon_rect, self.transformers_icon_rect, self.misc_icon_rect]
         self.toolbar_subicons: list[MenuSubItem] = []
 
         self.continue_button = MenuButton(self, "mover.png", 40)
@@ -295,10 +305,10 @@ class CelPython:
 
 
 
-            
 
         # Initialize cell maps
         self.cell_map: dict[tuple[int, int], Cell] = {}
+        self.previous_map = {}
         self.delete_map = []
         self.above: dict[tuple[int, int], Cell] = {}
         self.below: dict[tuple[int, int], Cell] = {}
@@ -366,7 +376,117 @@ class CelPython:
         self.tickspeed_slider = Slider(self, (self.menu_bg_rect.left+300)//2, self.window_height//2 - 100, 300, 10, 0.001, 1, 0.2)
         self.tpu_slider = Slider(self, (self.menu_bg_rect.left+300)//2, self.window_height//2 - 70, 300, 10, 1, 11, 1)
 
-        self.subticks = []
+        self.subticks = [
+            lambda self: self.apply_to_cells("rightup", Cell.do_freeze),
+
+            lambda self: self.apply_to_cells("rightup", Cell.do_effect_giving),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_timewarp(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_timewarp(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_timewarp(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_timewarp(cell, 1)),
+
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_mirror(cell, 0, 4)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_mirror(cell, 1, 5)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_mirror(cell, 3, 7)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_mirror(cell, 2, 6)),
+
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_intake(cell, 0)),
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_intake(cell, 2)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_intake(cell, 3)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_intake(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_shift(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_shift(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_shift(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_shift(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_super_gen(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_super_gen(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_super_gen(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_super_gen(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_gen(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_gen(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_gen(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_gen(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_replicate(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_replicate(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_replicate(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_replicate(cell, 1)),
+
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_flip(cell)),
+
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_rot(cell)),
+
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_gear(cell, 1)),
+            lambda self: self.apply_to_cells("leftup", lambda cell: Cell.do_gear(cell, -1)),
+
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_redirect(cell)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_impulse(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_impulse(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_impulse(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_impulse(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_grapulse(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_grapulse(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_grapulse(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_grapulse(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_super_repulse(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_super_repulse(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_super_repulse(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_super_repulse(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_repulse(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_repulse(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_repulse(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_repulse(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_magnet(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_magnet(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_magnet(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_magnet(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_drill(cell, 0)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_drill(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_drill(cell, 3)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_drill(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_pull(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_pull(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_pull(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_pull(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_grab(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_grab(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_grab(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_grab(cell, 1)),
+
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_push(cell, 0)),
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_push(cell, 2)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_push(cell, 3)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_push(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_slice(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_slice(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_slice(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_slice(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_nudge(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_nudge(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_nudge(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_nudge(cell, 1)),
+
+            lambda self: self.apply_to_cells("upleft", lambda cell: Cell.do_gate(cell, 0)),
+            lambda self: self.apply_to_cells("upright", lambda cell: Cell.do_gate(cell, 2)),
+            lambda self: self.apply_to_cells("rightdown", lambda cell: Cell.do_gate(cell, 3)),
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_gate(cell, 1)),
+
+            lambda self: self.apply_to_cells("rightup", lambda cell: Cell.do_infect(cell)),
+        ]
 
 
 
@@ -422,17 +542,67 @@ class CelPython:
         else:
             return Cell(self, x, y, 0, 0)
         
-    def get_all_cells(self) -> list[Cell]:
+    def apply_to_cells(self, priority, func: callable):
         '''Gets all the cells with a given ID and a direction, and orders them for sub-sub-ticking.'''
-                
-        result: list[Cell] = []
-        cell: Cell
-        for cell in self.cell_map.values():
-            if cell.tile_x < 0 or cell.tile_y < 0 or cell.tile_x >= self.grid_width or cell.tile_y >= self.grid_height:
-                continue
-            result.append(cell)
+        a: range
+        b: range
+        #print(.+?)func)
+        if func == self.test:
+            pass
+        match priority:
 
-        return result
+                            case "rightdown":
+                                a = range(self.grid_width)
+                                b = range(self.grid_height)
+                            case "rightup":
+                                a = range(self.grid_width)
+                                b = reversed(range(self.grid_height))
+
+                            case "leftdown":
+                                a = reversed(range(self.grid_width))
+                                b = range(self.grid_height)
+                            case "leftup":
+                                a = reversed(range(self.grid_width))
+                                b = reversed(range(self.grid_height))
+
+
+                            case "downright":
+                                a = range(self.grid_height)
+                                b = range(self.grid_width)
+                            case "downleft":
+                                a = range(self.grid_height)
+                                b = reversed(range(self.grid_width))
+
+                            case "upright":
+                                a = reversed(range(self.grid_height))
+                                b = range(self.grid_width)
+                            case "upleft":
+                                a = reversed(range(self.grid_height))
+                                b = reversed(range(self.grid_width))
+
+        a = list(a)
+        b = list(b)
+
+        
+        #result = []
+
+        
+        if priority[0] in ["u", "d"]:
+            for j in list(b):
+                for i in list(a):
+
+                    if (j, i) in self.cell_map.keys():
+                        func(self.cell_map[(j, i)])
+                        
+        else:
+            for j in list(b):
+                for i in list(a):            #if (j, i) == (18, 16):
+
+                        #print(.+?)(j, i))
+                    if (i, j) in self.cell_map.keys():
+                        func(self.cell_map[(i, j)])
+                    #if priority[0] in ["d", "u"] else func(self.cell_map.get((j, i)))
+        return
     
     def reverse(self, cell: Cell) -> int | float:
         if cell.tile_x < 0 or cell.tile_y < 0 or cell.tile_x >= self.grid_width or cell.tile_y >= self.grid_height:
@@ -463,12 +633,12 @@ class CelPython:
         return float("-infinity")
     
     def victory(self):
-        #print("victory")
+        ##print(.+?)"victory")
         self.result = "victory"
         self.menu_on = True
     
     def failure(self):
-        #print("failure")
+        ##print(.+?)"failure")
         self.result = "failure"
         self.menu_on = True
     
@@ -479,10 +649,17 @@ class CelPython:
         cell: Cell
         for k in self.tags:
             self.tags[k] = 0
+        self.previous_map = self.copy_map(self.cell_map)
         for cell in self.cell_map.values():
             cell.suppressed = False
             cell.frozen = False
             cell.protected = False
+            cell.locked = False
+
+            cell.pushclamped = False
+            cell.pullclamped = False
+            cell.grabclamped = False
+            cell.swapclamped = False
 
             cell.eat_top = False
             cell.eat_bottom = False
@@ -501,112 +678,11 @@ class CelPython:
         self.play_rotate_sound = False
         self.play_gear_sound = False
         self.play_destroy_flag = False
+        self.test = lambda cell: Cell.do_push(cell, 0)
 
-        # Do freezers (subtick 8)
-        for i in range(4):
-            for cell in self.cell_map.values():
-                cell.do_freeze(i)
-
-        # Do shields (subtick 10)
-        for cell in self.cell_map.values():
-            cell.do_protect()
-
-        # Do mirrors (subtick 38 & 41)
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            cell.do_mirror(0, 4)
-
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            cell.do_mirror(1, 5)
-
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            cell.do_mirror(3, 7)
-
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            cell.do_mirror(2, 6)
-
-        # Do intakers subticks 70 to 73
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.forward):
-                cell.do_intake(i)
-
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            cell.do_bob()
-
-        # Do generators subticks 90 to 93
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.reverse):
-                cell.do_super_gen(i)
-
-        # Do generators subticks 90 to 93
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.reverse):
-                cell.do_gen(i)
-
-        # Do replicators subticks 102 to 105
-        for i in range(4):
-            for cell in sorted(self.get_all_cells(), key=self.reverse):
-                cell.do_replicate(i)
-
-        # Do gears
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            cell.do_gear(1)
-
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            cell.do_gear(-1)
-
-        # Do flippers (subtick 115)
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            cell.do_flip()
-
-        # Do rotators
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            cell.do_rot()
-
-        # Do redirectors
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            cell.do_redirect()
         
-        # Do impulsors
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.forward):
-                cell.do_impulse(i)
-
-        # Do super repulsors
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.forward):
-                cell.do_super_repulse(i)
-
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.forward):
-                cell.do_grapulse(i)
-
-        # Do repulsors
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.forward):
-                cell.do_repulse(i)
-
-        # Do movers
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.forward):
-                cell.do_drill(i)
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.forward):
-                cell.do_pull(i)
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.forward):
-                cell.do_grab(i)
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.reverse):
-                cell.do_push(i)
-        for i in [0, 2, 3, 1]:
-            for cell in sorted(self.get_all_cells(), key=self.forward):
-                cell.do_nudge(i)
-
-
-        # Gates
-        for cell in sorted(self.get_all_cells(), key=self.forward):
-            for i in range(4):
-                cell.do_gate(i)
+        for func in self.subticks:
+            func(self)
 
         self.tick_number += 1
 
@@ -615,7 +691,7 @@ class CelPython:
                 if cell.tags[k]:
                     self.tags[k] += 1
 
-        #print(self.initial_tags, self.tags)
+        ##print(.+?)self.initial_tags, self.tags)
         if self.tags["enemy"] == 0 and self.initial_tags["enemy"] !=  0 and self.puzzlemode:
             self.victory()
             self.paused = True
@@ -802,7 +878,7 @@ class CelPython:
             self.cam_y = self.cam_y/2 - y/2
 
     def update(self):
-        #print(self.world_mouse_tile_x, self.world_mouse_tile_y)
+        ##print(.+?)self.world_mouse_tile_x, self.world_mouse_tile_y)
         self.window_height = self.window.get_height()
         self.window_width = self.window.get_width()
         #all_buttons = []
@@ -818,7 +894,7 @@ class CelPython:
         # Event loop
         events = pygame.event.get()
 
-        #print(events)
+        ##print(.+?)events)
 
 
         for event in events:
@@ -847,7 +923,7 @@ class CelPython:
                         self.scroll_up(mouse_x, mouse_y)
                 
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    #print("F")
+                    ##print(.+?)"F")
                         
                     if self.selecting and event.dict["button"] == 1 and True not in self.all_buttons:
                         self.select_start = (self.world_mouse_tile_x, self.world_mouse_tile_y)
@@ -880,7 +956,7 @@ class CelPython:
                         self.selected_cell = None
                         
                     if True:
-                        #print(True not in self.all_buttons)
+                        ##print(.+?)True not in self.all_buttons)
                         if self.selecting and event.dict["button"] == 1 and True not in self.all_buttons:
                             self.select_end = (self.world_mouse_tile_x, self.world_mouse_tile_y)
 
@@ -936,6 +1012,12 @@ class CelPython:
                                     else:
                                         self.current_menu = 7
                                     self.current_submenu = -1
+                                elif self.transformers_icon_rect.collidepoint(mouse_x, mouse_y):
+                                    if self.current_menu == 8:
+                                        self.current_menu = -1
+                                    else:
+                                        self.current_menu = 8
+                                    self.current_submenu = -1
                                 elif self.misc_icon_rect.collidepoint(mouse_x, mouse_y):
                                     if self.current_menu == 9:
                                         self.current_menu = -1
@@ -964,7 +1046,7 @@ class CelPython:
                                 if self.eraser_button.rect.collidepoint(mouse_x, mouse_y):
                                     self.brush = 0
                                 elif self.copy_button.rect.collidepoint(mouse_x, mouse_y):
-                                    #print("copy")
+                                    ##print(.+?)"copy")
                                     self.copy_selected()
                                 elif self.paste_button.rect.collidepoint(mouse_x, mouse_y):
                                     self.show_clipboard = not self.show_clipboard
@@ -1056,7 +1138,7 @@ class CelPython:
 
                     if event.dict["key"] == pygame.K_t:
                         if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
-                            self.save_map()
+                            print(self.cell_map[self.world_mouse_tile_x, self.world_mouse_tile_y].get_cw_grab_bias(0))
                     
                     if event.dict["key"] == pygame.K_3:
                         #if (self.world_mouse_tile_x, self.world_mouse_tile_y) in self.cell_map.keys():
@@ -1207,7 +1289,7 @@ class CelPython:
                 self.window.blit(s, (min(self.select_start[0]*self.tile_size-self.cam_x, self.select_end[0]*self.tile_size-self.cam_x), min(self.select_start[1]*self.tile_size-self.cam_y, self.select_end[1]*self.tile_size-self.cam_y)))
             if self.show_clipboard and self.clipboard_start != None and self.clipboard_end != None:
                 s = pygame.Surface((abs(self.clipboard_end[0]-self.clipboard_start[0])*self.tile_size+self.tile_size, abs(self.clipboard_end[1]-self.clipboard_start[1])*self.tile_size+self.tile_size), pygame.SRCALPHA)
-                #print(self.clipboard)
+                ##print(.+?)self.clipboard)
                 tlcorner = (min((-self.clipboard_start[0]+self.world_mouse_tile_x), (-self.clipboard_end[0]+self.world_mouse_tile_x)), min((-self.clipboard_start[1]+self.world_mouse_tile_y), (-self.clipboard_end[1]+self.world_mouse_tile_y)))
                 anchor = (tlcorner[0] - self.world_mouse_tile_x, tlcorner[1] - self.world_mouse_tile_y)
 
@@ -1253,6 +1335,7 @@ class CelPython:
                 self.window.blit(pygame.transform.rotate(self.forcers_icon_image, -90*self.brush_dir), self.forcers_icon_rect)
                 self.window.blit(pygame.transform.rotate(self.divergers_icon_image, -90*self.brush_dir), self.divergers_icon_rect)
                 self.window.blit(pygame.transform.rotate(self.destroyers_icon_image, -90*self.brush_dir), self.destroyers_icon_rect)
+                self.window.blit(pygame.transform.rotate(self.transformers_icon_image, -90*self.brush_dir), self.transformers_icon_rect)
                 self.window.blit(pygame.transform.rotate(self.misc_icon_image, -90*self.brush_dir), self.misc_icon_rect)
 
             for button in self.toolbar_subicons:
@@ -1510,7 +1593,7 @@ class CelPython:
         #input()
         cellcode = base64.b64encode(compress(str.encode(cellcode),9)).decode("utf-8")
         result = result + cellcode + ";"
-        #print(result)
+        ##print(.+?)result)
 
         pyperclip.copy(result)
 

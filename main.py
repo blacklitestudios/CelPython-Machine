@@ -11,7 +11,7 @@ __maintainer__ = "AzurusTheFirst"
 __email__ = "azurus2358@gmail.com"
 __status__ = "Prerelease"
 
-NESTEAS_MILES_OWES_ME = 28
+NESTEAS_MILES_OWES_ME = 22
 
 if __name__ == "__main__":
     from game import CelPython
